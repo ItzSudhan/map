@@ -65,7 +65,7 @@ const emojiFor = (p) => CAT_EMOJI[p.value] || CAT_EMOJI[p.type] || '📍';
 
 /* ---------------- State ---------------- */
 const state = {
-  styleKey: localStorage.getItem('map.style') || 'liberty',
+  styleKey: localStorage.getItem('map.style') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'liberty'),
   place: null,
   placeMarker: null,
   resultMarkers: [],
@@ -217,32 +217,6 @@ const OSM_TYPE = { N: 'node', W: 'way', R: 'relation' };
 const searchInput = $('#search-input');
 const suggestionsEl = $('#suggestions');
 
-function photonURL(q, limit = 8) {
-  const c = map.getCenter();
-  const lang = ['en', 'de', 'fr', 'it'].includes(navigator.language.slice(0, 2)) ? navigator.language.slice(0, 2) : 'en';
-  // Stronger local bias when zoomed in, so "Starbucks" finds the one near you rather than one abroad.
-  const z = Math.round(map.getZoom());
-  return `${CONFIG.photon}/api/?q=${encodeURIComponent(q)}&limit=${limit}&lang=${lang}&lat=${c.lat}&lon=${c.lng}&zoom=${z}&location_bias_scale=${z >= 10 ? 0.6 : 0.3}`;
-}
-
-/* When zoomed into an area, list places within ~500 km first (keeping Photon's order inside each group). */
-function preferNearby(places) {
-  if (map.getZoom() < 7) return places;
-  const c = [map.getCenter().lng, map.getCenter().lat];
-  const near = [], far = [];
-  for (const p of places) (haversine(c, [p.lon, p.lat]) < 500000 ? near : far).push(p);
-  return [...near, ...far];
-}
-
-/* Remove near-identical hits (same name within ~300 m), which Photon returns for big places. */
-function dedupe(places) {
-  const out = [];
-  for (const p of places) {
-    if (!out.some((o) => o.name.toLowerCase() === p.name.toLowerCase() && haversine([o.lon, o.lat], [p.lon, p.lat]) < 300)) out.push(p);
-  }
-  return out;
-}
-
 /* Recent searches (stored in the browser) */
 const recent = {
   list: () => JSON.parse(localStorage.getItem('map.recent') || '[]'),
@@ -324,17 +298,21 @@ function attachAutocomplete(input, list, onPick, { extra = () => [], allowAction
     if (allowActions && q) {
       const coords = parseCoords(q);
       if (coords) rows.unshift({ action: 'coords', ...coords, name: `Go to ${fmtCoord(coords.lat, coords.lon)}`, icon: '🧭' });
-      const cat = matchCategory(q);
-      if (cat) rows.unshift({ action: 'category', cat, name: `${CAT_TITLE[cat].replace(/^\S+\s/, '')} nearby`, short: 'Search this area', icon: CAT_TITLE[cat].split(' ')[0] });
+      const parsed = Search.parse(q);
+      const cat = matchCategory(parsed.where ? parsed.what : q);
+      const catName = cat && CAT_TITLE[cat].replace(/^\S+\s/, '');
+      if (cat && parsed.where) rows.unshift({ action: 'category', cat, where: parsed.where, name: `${catName} in ${parsed.where.replace(/^./, (c) => c.toUpperCase())}`, short: 'Search that area', icon: CAT_TITLE[cat].split(' ')[0] });
+      else if (cat) rows.unshift({ action: 'category', cat, name: `${catName} nearby`, short: 'Search this area', icon: CAT_TITLE[cat].split(' ')[0] });
     }
     return rows;
   };
+  let abort;
   const fetchSuggestions = debounce(async (q) => {
     const my = ++seq;
+    abort?.abort(); abort = new AbortController();
     try {
-      const data = await getJSON(photonURL(q));
+      const { places } = await Search.search(q, { limit: 8, signal: abort.signal });
       if (my !== seq || input.value.trim() !== q) return;
-      const places = preferNearby(dedupe(data.features.map(photonToPlace)));
       items = [...local(q), ...places];
       if (allowActions) items.push(places.length
         ? { action: 'search', q, name: `See all results for “${q}”`, icon: '🔍' }
@@ -380,7 +358,7 @@ function attachAutocomplete(input, list, onPick, { extra = () => [], allowAction
 
 attachAutocomplete(searchInput, suggestionsEl, (it) => {
   if (it.action === 'search') { searchInput.value = it.q; syncClear(); return runSearch(it.q); }
-  if (it.action === 'category') { searchInput.value = CAT_TITLE[it.cat].replace(/^\S+\s/, ''); syncClear(); return nearbySearch(it.cat); }
+  if (it.action === 'category') { searchInput.value = it.name || CAT_TITLE[it.cat].replace(/^\S+\s/, ''); syncClear(); return categoryIn(it.cat, it.where); }
   if (it.action === 'coords') { searchInput.value = fmtCoord(it.lat, it.lon); syncClear(); map.flyTo({ center: [it.lon, it.lat], zoom: 16 }); return whatsHere({ lat: it.lat, lng: it.lon }); }
   searchInput.value = it.name; syncClear();
   recent.add(it);
@@ -401,15 +379,25 @@ const syncClear = () => $('#clear-btn').classList.toggle('hidden', !searchInput.
 searchInput.addEventListener('input', syncClear);
 $('#clear-btn').onclick = () => { searchInput.value = ''; syncClear(); closePanel(); searchInput.focus(); };
 
+/** Category search, optionally in a named place ("coffee in jaipur"). */
+async function categoryIn(cat, where) {
+  if (where) {
+    const loc = await Search.resolveWhere(where).catch(() => null);
+    if (!loc) { toast(`Couldn't find “${where}”`); return; }
+    map.jumpTo({ center: [loc.lon, loc.lat], zoom: 14 });
+  }
+  return nearbySearch(cat);
+}
+
 async function runSearch(q) {
-  const cat = matchCategory(q);
-  if (cat) return nearbySearch(cat);
+  const parsed = Search.parse(q);
+  const cat = matchCategory(parsed.where ? parsed.what : q);
+  if (cat) return categoryIn(cat, parsed.where);
   openPanel(skeleton('Searching…'));
   try {
-    const data = await getJSON(photonURL(q, 20));
-    const places = preferNearby(dedupe(data.features.map(photonToPlace)));
+    const { places, anchor } = await Search.search(q, { limit: 20, full: true });
     if (places.length === 1) { recent.add(places[0]); return showPlace(places[0], { fly: true }); }
-    showResults(places, `Results for “${q}”`);
+    showResults(places, anchor ? `Results for “${parsed.what}” in ${anchor.name}` : `Results for “${q}”`);
   } catch { openPanel(`<div class="empty">Search failed. Check your connection and try again.</div>`); }
 }
 
@@ -567,18 +555,24 @@ function renderPlace(p, fromResults, animate = true) {
   const osmLink = p.osm ? `https://www.openstreetmap.org/${OSM_TYPE[p.osm.type]}/${p.osm.id}` : `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=18/${p.lat}/${p.lon}`;
   openPanel(`
     ${fromResults && state.results ? `<button class="steps-toggle" id="back-results" style="margin:-56px 0 16px 16px;display:flex;gap:6px;align-items:center;position:relative">${ICONS.back} Back to results</button>` : ''}
-    <div class="place-hero"><span>${emojiFor(p)}</span></div>
-    <div class="place-head"><h1>${esc(p.name)}</h1><div class="cat">${esc(p.category)}</div></div>
+    <div class="place-hero" id="pe-hero"><span>${emojiFor(p)}</span></div>
+    <div class="place-head"><h1>${esc(p.name)}</h1><div class="cat">${esc(p.category)}</div><div id="pe-status"></div></div>
     <div class="actions">
       <button class="action primary" data-a="dir"><span class="circ">${ICONS.directions}</span>Directions</button>
       <button class="action" data-a="save"><span class="circ">${isSaved(p) ? ICONS.saved : ICONS.save}</span>${isSaved(p) ? 'Saved' : 'Save'}</button>
       <button class="action" data-a="nearby"><span class="circ">${ICONS.nearby}</span>Nearby</button>
       <button class="action" data-a="share"><span class="circ">${ICONS.share}</span>Share</button>
     </div>
+    <div id="pe-about"></div>
     ${rows.map(([i, h, k]) => `<div class="info-row" ${k ? `data-k="${k}"` : ''}><span class="ir-icon">${i}</span><span>${h}</span></div>`).join('')}
+    <div id="pe-extra-rows"></div>
+    <div id="pe-weather"></div>
+    <div id="pe-photos-grid"></div>
+    <div id="pe-nearby"></div>
     <div class="attribution-note">Data from <a href="${osmLink}" target="_blank" rel="noopener">OpenStreetMap</a>. Something wrong? <a href="https://www.openstreetmap.org/note/new#map=18/${p.lat}/${p.lon}" target="_blank" rel="noopener">Suggest an edit</a>.</div>
   `, { animate, keepScroll: !animate });
   $('#back-results')?.addEventListener('click', () => showResults(state.results.places, state.results.title, { keepView: true }));
+  window.PlaceExtras?.render(p);
   $$('#panel .info-row[data-k]').forEach((r) => r.addEventListener('click', () =>
     copy(r.dataset.k === 'coords' ? fmtCoord(p.lat, p.lon) : p.address, r.dataset.k === 'coords' ? 'Coordinates copied' : 'Address copied')));
   $$('#panel .action').forEach((b) => b.addEventListener('click', () => {
@@ -866,7 +860,8 @@ function renderDirections() {
           <div class="rc-icon">${ICONS[d.mode]}</div>
           <div class="rc-main"><div class="rc-via">via ${esc(rt.legs[0].summary || 'unnamed roads')}</div>
             <div class="rc-sub">${i === 0 ? 'Fastest route' : `${fmtDur(rt.duration - d.routes[0].duration)} slower`}</div></div>
-          <div class="rc-time"><div class="rc-dur">${fmtDur(rt.duration)}</div><div class="rc-dist">${fmtDist(rt.distance)}</div></div>
+          <div class="rc-time"><div class="rc-dur">${fmtDur(rt.duration)}</div><div class="rc-dist">${fmtDist(rt.distance)}</div>
+            <div class="rc-arrive">Arrive ${new Date(Date.now() + rt.duration * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>
         </div>`).join('')}
     </div>
     <button class="steps-toggle" id="steps-toggle">${d.showSteps ? 'Hide' : 'Show'} step-by-step directions</button>
@@ -1007,3 +1002,23 @@ document.addEventListener('keydown', (e) => {
     setTimeout(() => { i = (i + 1) % hints.length; searchInput.placeholder = hints[i]; searchInput.classList.remove('ph-fade'); }, 300);
   }, 3500);
 })();
+
+/* ---------------- Startup: where should the map open? ---------------- */
+// Runs after search.js has loaded (it is included after this file).
+window.addEventListener('DOMContentLoaded', function initialView() {
+  const hasHash = /map=/.test(location.hash);
+  const last = JSON.parse(localStorage.getItem('map.view') || 'null');
+  if (!hasHash && last) map.jumpTo({ center: last.center, zoom: last.zoom });
+  map.on('moveend', debounce(() => {
+    localStorage.setItem('map.view', JSON.stringify({ center: map.getCenter().toArray(), zoom: map.getZoom() }));
+  }, 500));
+  // Use GPS silently if the user already allowed it before; otherwise fall back to a rough IP location.
+  navigator.permissions?.query({ name: 'geolocation' }).then((perm) => {
+    if (perm.state === 'granted') locate(hasHash || last ? true : false);
+  }).catch(() => {});
+  Search.loadIpLocation().then((ip) => {
+    if (ip && !hasHash && !last && !state.me && !new URLSearchParams(location.search).get('ll')) {
+      map.flyTo({ center: [ip.lon, ip.lat], zoom: 10, duration: 1500 });
+    }
+  });
+});

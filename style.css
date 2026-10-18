@@ -410,3 +410,4 @@ body.style-switching #map { filter: blur(3px) saturate(.8); }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }
   .me-marker::after { display: none; }
 }
+.route-card .rc-arrive { font-size: 12px; color: var(--muted); margin-top: 2px; white-space: nowrap; }

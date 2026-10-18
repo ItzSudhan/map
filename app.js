@@ -942,6 +942,13 @@ function clearRoute() {
 }
 map.on('click', 'route-alt', (e) => { const i = e.features[0]?.properties.i; if (i != null) { state.dir.active = +i; renderRoutes(true); renderDirections(); } });
 
+/** "via" label for a route: its main road names, without repeats ("Amer Road, Amer Road" -> "Amer Road"). */
+function routeVia(rt) {
+  const seen = new Set();
+  return rt.legs.flatMap((l) => (l.summary || '').split(',')).map((x) => x.trim())
+    .filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase())).slice(0, 3).join(', ');
+}
+
 function renderDirections() {
   const d = state.dir, body = $('#dir-body'); if (!body) return;
   const r = d.routes[d.active];
@@ -951,7 +958,7 @@ function renderDirections() {
       ${d.routes.map((rt, i) => `
         <div class="route-card ${i === d.active ? 'active' : ''}" data-i="${i}">
           <div class="rc-icon">${ICONS[d.mode]}</div>
-          <div class="rc-main"><div class="rc-via">via ${esc(rt.legs.map((l) => l.summary).filter(Boolean).join(', ').split(', ').slice(0, 3).join(', ') || 'unnamed roads')}</div>
+          <div class="rc-main"><div class="rc-via">via ${esc(routeVia(rt) || 'unnamed roads')}</div>
             <div class="rc-sub">${i === 0 ? 'Fastest route' : `${fmtDur(rt.duration - d.routes[0].duration)} slower`}</div></div>
           <div class="rc-time"><div class="rc-dur">${fmtDur(rt.duration)}</div><div class="rc-dist">${fmtDist(rt.distance)}</div>
             <div class="rc-arrive">Arrive ${new Date(Date.now() + rt.duration * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>
@@ -1138,6 +1145,7 @@ document.addEventListener('keydown', (e) => {
       getJSON(`${CONFIG.photon}/reverse?lat=${lat}&lon=${lon}&limit=1`).then((d) => { const f = d.features[0]; if (f && state.place === p) { const r = photonToPlace(f); p.address = r.address; p.short = r.short; p.category = r.category; showPlace(p); } }).catch(() => {});
     }
   } else if (q) { searchInput.value = q; syncClear(); map.once('load', () => runSearch(q)); }
+  if (params.get('dir') === '1') map.once('load', () => openDirections()); // app shortcut
   const rt = params.get('route');
   if (rt) {
     const pts = rt.split(';').map((s) => s.split(',').map(Number)).filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b))

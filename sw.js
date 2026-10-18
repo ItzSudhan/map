@@ -1,5 +1,5 @@
 /* Map: service worker. Caches the app shell so it opens instantly and works offline (map tiles still need a connection). */
-const CACHE = 'map-shell-v7';
+const CACHE = 'map-shell-v8';
 const SHELL = ['/', '/index.html', '/style.css', '/app.js', '/search.js', '/extras.js', '/mapx.js', '/streetview.js', '/sheet.js', '/overlays.js', '/overlays.css', '/tools.js', '/tools.css', '/mymaps.js', '/mymaps.css', '/navigation.js', '/navigation.css', '/icon.svg', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => {

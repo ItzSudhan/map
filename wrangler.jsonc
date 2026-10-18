@@ -2,7 +2,10 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "map",
   "compatibility_date": "2026-10-01",
+  // A tiny Worker gives shared place/route links their own titles and link previews (src/worker.js).
+  "main": "src/worker.js",
   // Static site: serve the repo root, minus the files listed in .assetsignore.
-  "assets": { "directory": "." },
+  // Only the HTML page goes through the Worker; every other file is served directly.
+  "assets": { "directory": ".", "binding": "ASSETS", "run_worker_first": ["/", "/index.html"] },
   "routes": [{ "pattern": "map.itzsudhan.com", "custom_domain": true }]
 }

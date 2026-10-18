@@ -2,10 +2,66 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Map</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ea4335' d='M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z'/></svg>" />
-  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+  <title>Map · Free open-source maps, directions &amp; Street View</title>
+  <meta name="description" content="Map is a free, open-source Google Maps alternative built on OpenStreetMap: smart search, driving/cycling/walking directions with turn-by-turn navigation, Street View, 3D buildings, terrain, live weather, rain radar and more. No API keys, no ads." />
+  <meta name="keywords" content="free maps, open source maps, google maps alternative, openstreetmap, directions, navigation, street view, 3d map, maplibre, india map" />
+  <meta name="author" content="Sudhan" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <link rel="canonical" href="https://map.itzsudhan.com/" />
+  <meta name="application-name" content="Map" />
+  <meta name="apple-mobile-web-app-title" content="Map" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <!-- Open Graph (WhatsApp, Facebook, LinkedIn, Discord…) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Map" />
+  <meta property="og:title" content="Map · Free open-source maps, directions &amp; Street View" />
+  <meta property="og:description" content="Search, directions, navigation, Street View, 3D and live weather, built on OpenStreetMap. Free, no API keys." />
+  <meta property="og:url" content="https://map.itzsudhan.com/" />
+  <meta property="og:image" content="https://map.itzsudhan.com/og-image.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Map: free, open-source maps with directions and Street View" />
+  <meta property="og:locale" content="en_IN" />
+
+  <!-- Twitter / X -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Map · Free open-source maps, directions &amp; Street View" />
+  <meta name="twitter:description" content="Search, directions, navigation, Street View, 3D and live weather, built on OpenStreetMap. Free, no API keys." />
+  <meta name="twitter:image" content="https://map.itzsudhan.com/og-image.png" />
+  <meta name="twitter:image:alt" content="Map: free, open-source maps with directions and Street View" />
+
+  <!-- Icons -->
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="icon" href="icons/icon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <meta name="theme-color" content="#1a73e8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#202124" media="(prefers-color-scheme: dark)" />
+
+  <!-- Structured data for search engines -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Map",
+    "url": "https://map.itzsudhan.com/",
+    "description": "Free, open-source Google Maps alternative built on OpenStreetMap: search, directions, turn-by-turn navigation, Street View, 3D buildings, terrain and live weather.",
+    "applicationCategory": "TravelApplication",
+    "operatingSystem": "Any",
+    "browserRequirements": "Requires a modern browser with WebGL",
+    "image": "https://map.itzsudhan.com/og-image.png",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "license": "https://opensource.org/licenses/MIT",
+    "codeRepository": "https://github.com/ItzSudhan/map",
+    "author": { "@type": "Person", "name": "Sudhan", "url": "https://github.com/ItzSudhan" },
+    "featureList": ["Place search", "Driving, cycling and walking directions", "Turn-by-turn voice navigation", "Street View", "360° panoramas", "3D buildings and terrain", "Live weather and air quality", "Rain radar", "My Maps drawing and GPX/KML import"]
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" />
@@ -16,10 +72,10 @@
   <link rel="stylesheet" href="mymaps.css" />
   <link rel="stylesheet" href="navigation.css" />
   <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#1a73e8" />
-  <link rel="apple-touch-icon" href="icon.svg" />
 </head>
 <body>
+  <h1 class="visually-hidden">Map: free, open-source maps with search, directions, navigation and Street View</h1>
+  <noscript><p style="padding:24px;font-family:sans-serif">Map needs JavaScript and WebGL. It's a free, open-source Google Maps alternative built on OpenStreetMap, with search, directions, turn-by-turn navigation, Street View, 3D and live weather. Source code: <a href="https://github.com/ItzSudhan/map">github.com/ItzSudhan/map</a>.</p></noscript>
   <div id="map"></div>
 
   <!-- Search card -->

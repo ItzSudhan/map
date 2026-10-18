@@ -1,13 +1,25 @@
 {
-  "name": "Map",
+  "name": "Map: free open-source maps",
   "short_name": "Map",
-  "description": "Free, open-source maps built on OpenStreetMap.",
+  "description": "Free, open-source maps built on OpenStreetMap: search, directions, navigation, Street View and more.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#ffffff",
   "theme_color": "#1a73e8",
+  "categories": ["navigation", "travel", "maps"],
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
-    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "screenshots": [
+    { "src": "/og-image.png", "sizes": "1200x630", "type": "image/png", "form_factor": "wide", "label": "Directions in Jaipur" }
+  ],
+  "shortcuts": [
+    { "name": "Directions", "url": "/?dir=1", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

@@ -1,0 +1,8 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "map",
+  "compatibility_date": "2026-10-01",
+  // Static site: serve the repo root, minus the files listed in .assetsignore.
+  "assets": { "directory": "." },
+  "routes": [{ "pattern": "map.itzsudhan.com", "custom_domain": true }]
+}

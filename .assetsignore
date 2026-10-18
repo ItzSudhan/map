@@ -1,0 +1,11 @@
+.git
+.gitignore
+.assetsignore
+.vercel
+.wrangler
+wrangler.jsonc
+README.md
+LICENSE
+node_modules
+.DS_Store
+.env.local

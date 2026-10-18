@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Map</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ea4335' d='M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z'/></svg>" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Search card -->
+  <div id="search-card" class="card">
+    <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Menu">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </button>
+    <input id="search-input" type="text" placeholder="Search Map" autocomplete="off" spellcheck="false" />
+    <button id="clear-btn" class="icon-btn hidden" title="Clear" aria-label="Clear">
+      <svg viewBox="0 0 24 24"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+    </button>
+    <span class="divider"></span>
+    <button id="directions-btn" class="icon-btn blue" title="Directions" aria-label="Directions">
+      <svg viewBox="0 0 24 24"><path d="M21.7 11.3l-9-9a1 1 0 00-1.4 0l-9 9a1 1 0 000 1.4l9 9a1 1 0 001.4 0l9-9a1 1 0 000-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 011-1h5V7.5l3.5 3.5-3.5 3.5z"/></svg>
+    </button>
+    <ul id="suggestions" class="suggestions hidden"></ul>
+  </div>
+
+  <!-- Category chips -->
+  <div id="chips">
+    <button class="chip" data-q="restaurant">🍴 Restaurants</button>
+    <button class="chip" data-q="cafe">☕ Coffee</button>
+    <button class="chip" data-q="hotel">🛏️ Hotels</button>
+    <button class="chip" data-q="fuel">⛽ Gas</button>
+    <button class="chip" data-q="supermarket">🛒 Groceries</button>
+    <button class="chip" data-q="pharmacy">💊 Pharmacies</button>
+    <button class="chip" data-q="park">🌳 Parks</button>
+  </div>
+
+  <!-- Side panel (place details / directions / results / saved) -->
+  <aside id="panel" class="hidden">
+    <div id="panel-content"></div>
+  </aside>
+
+  <!-- Menu drawer -->
+  <div id="drawer-backdrop" class="hidden"></div>
+  <nav id="drawer">
+    <div class="drawer-title"><span class="logo"><b>Map</b></span></div>
+    <button class="drawer-item" data-action="saved">⭐ Saved places</button>
+    <button class="drawer-item" data-action="share">🔗 Share this map view</button>
+    <button class="drawer-item" data-action="theme">🌓 Toggle dark map</button>
+    <div class="drawer-sep"></div>
+    <a class="drawer-item" href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener">✏️ Fix the map on OpenStreetMap</a>
+    <a class="drawer-item" href="https://github.com/ItzSudhan/map" target="_blank" rel="noopener" id="gh-link">📦 Source code</a>
+    <div class="drawer-foot">Map data © OpenStreetMap contributors · Tiles OpenFreeMap · Search Photon · Routing OSRM</div>
+  </nav>
+
+  <!-- Right-side controls -->
+  <div id="controls">
+    <button id="locate-btn" class="ctrl" title="Your location" aria-label="Your location">
+      <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.9 3A9 9 0 0013 3.1V1h-2v2.1A9 9 0 003.1 11H1v2h2.1a9 9 0 007.9 7.9V23h2v-2.1a9 9 0 007.9-7.9H23v-2h-2.1zM12 19a7 7 0 110-14 7 7 0 010 14z"/></svg>
+    </button>
+    <div class="ctrl-group">
+      <button id="zoom-in" class="ctrl" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button>
+      <button id="zoom-out" class="ctrl" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14z"/></svg></button>
+    </div>
+  </div>
+
+  <!-- Layer switcher -->
+  <div id="layers">
+    <button id="layer-btn" title="Layers" aria-label="Layers">
+      <div id="layer-thumb"></div>
+      <span>Layers</span>
+    </button>
+    <div id="layer-menu" class="card hidden">
+      <button class="layer-opt" data-style="liberty"><div class="thumb t-liberty"></div>Default</button>
+      <button class="layer-opt" data-style="bright"><div class="thumb t-bright"></div>Bright</button>
+      <button class="layer-opt" data-style="positron"><div class="thumb t-positron"></div>Light</button>
+      <button class="layer-opt" data-style="dark"><div class="thumb t-dark"></div>Dark</button>
+      <button class="layer-opt" data-style="satellite"><div class="thumb t-satellite"></div>Satellite</button>
+    </div>
+  </div>
+
+  <!-- Context menu -->
+  <ul id="ctx-menu" class="card hidden">
+    <li data-action="coords" class="ctx-coords"></li>
+    <li data-action="whats-here">What's here?</li>
+    <li data-action="from">Directions from here</li>
+    <li data-action="to">Directions to here</li>
+    <li data-action="measure-reset" class="hidden">Clear measurement</li>
+    <li data-action="measure">Measure distance</li>
+  </ul>
+
+  <div id="measure-badge" class="card hidden"></div>
+  <div id="toast" class="hidden"></div>
+
+  <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -97,12 +97,13 @@ const PlaceExtras = (() => {
   }
 
   /* ---------------- Weather + air quality ---------------- */
+  // WMO weather code -> [Material Symbol, label]
   const WMO = {
-    0: ['☀️', 'Clear'], 1: ['🌤️', 'Mostly clear'], 2: ['⛅', 'Partly cloudy'], 3: ['☁️', 'Overcast'], 45: ['🌫️', 'Fog'], 48: ['🌫️', 'Fog'],
-    51: ['🌦️', 'Light drizzle'], 53: ['🌦️', 'Drizzle'], 55: ['🌧️', 'Heavy drizzle'], 61: ['🌦️', 'Light rain'], 63: ['🌧️', 'Rain'], 65: ['🌧️', 'Heavy rain'],
-    66: ['🌧️', 'Freezing rain'], 67: ['🌧️', 'Freezing rain'], 71: ['🌨️', 'Light snow'], 73: ['🌨️', 'Snow'], 75: ['❄️', 'Heavy snow'], 77: ['🌨️', 'Snow grains'],
-    80: ['🌦️', 'Showers'], 81: ['🌧️', 'Showers'], 82: ['⛈️', 'Violent showers'], 85: ['🌨️', 'Snow showers'], 86: ['🌨️', 'Snow showers'],
-    95: ['⛈️', 'Thunderstorm'], 96: ['⛈️', 'Thunderstorm, hail'], 99: ['⛈️', 'Thunderstorm, hail'],
+    0: ['sunny', 'Clear'], 1: ['sunny', 'Mostly clear'], 2: ['partly_cloudy_day', 'Partly cloudy'], 3: ['cloud', 'Overcast'], 45: ['foggy', 'Fog'], 48: ['foggy', 'Fog'],
+    51: ['rainy_light', 'Light drizzle'], 53: ['rainy_light', 'Drizzle'], 55: ['rainy', 'Heavy drizzle'], 61: ['rainy_light', 'Light rain'], 63: ['rainy', 'Rain'], 65: ['rainy_heavy', 'Heavy rain'],
+    66: ['rainy_snow', 'Freezing rain'], 67: ['rainy_snow', 'Freezing rain'], 71: ['weather_snowy', 'Light snow'], 73: ['weather_snowy', 'Snow'], 75: ['ac_unit', 'Heavy snow'], 77: ['weather_snowy', 'Snow grains'],
+    80: ['rainy', 'Showers'], 81: ['rainy', 'Showers'], 82: ['rainy_heavy', 'Violent showers'], 85: ['weather_snowy', 'Snow showers'], 86: ['weather_snowy', 'Snow showers'],
+    95: ['thunderstorm', 'Thunderstorm'], 96: ['thunderstorm', 'Thunderstorm, hail'], 99: ['thunderstorm', 'Thunderstorm, hail'],
   };
   const AQI = [[50, 'Good', '#1e8e3e'], [100, 'Moderate', '#f9ab00'], [150, 'Unhealthy for sensitive groups', '#e8710a'], [200, 'Unhealthy', '#d93025'], [300, 'Very unhealthy', '#9334e6'], [1e9, 'Hazardous', '#7b1f2e']];
   async function loadWeather(p) {
@@ -188,14 +189,16 @@ const PlaceExtras = (() => {
 
   /* ---------------- Rendering ---------------- */
   const $id = (id) => document.getElementById(id);
-  const live = (p) => state.place === p;
+  let gen = 0; // bumps on every card render; stale async callbacks are ignored
+  let cur = 0;
+  const live = (p) => state.place === p && cur === gen;
 
   function heroHTML(photos) {
     const n = photos.length;
     const img = (ph, i, cls) => `<button class="ph ${cls}" data-i="${i}" aria-label="Open photo ${i + 1}"><img src="${esc(ph.thumb)}" alt="" loading="lazy" onload="this.classList.add('loaded')"></button>`;
     return `<div class="hero-grid n${Math.min(n, 3)}">
       ${img(photos[0], 0, 'main')}${n > 1 ? img(photos[1], 1, 'side') : ''}${n > 2 ? img(photos[2], 2, 'side') : ''}
-      <button class="ph-count" data-i="0">📷 ${n} photo${n === 1 ? '' : 's'}</button></div>`;
+      <button class="ph-count" data-i="0">${mi('photo_library')} ${n} photo${n === 1 ? '' : 's'}</button></div>`;
   }
   function renderPhotos(p, photos) {
     const hero = $id('pe-hero'); if (!hero || !live(p)) return;
@@ -223,13 +226,14 @@ const PlaceExtras = (() => {
   function renderWeather(p, data) {
     const el = $id('pe-weather'); if (!el || !live(p) || !data?.w?.current) return;
     const { w, aq } = data, c = w.current, d = w.daily || {};
-    const [icon, label] = WMO[c.weather_code] || ['🌡️', ''];
+    let [icon, label] = WMO[c.weather_code] || ['thermostat', ''];
+    if (c.is_day === 0) icon = { sunny: 'clear_night', partly_cloudy_day: 'partly_cloudy_night' }[icon] || icon;
     const aqi = aq?.current?.us_aqi;
     const band = aqi != null ? AQI.find(([max]) => aqi <= max) : null;
     const time = (iso) => iso ? new Date(iso + ':00').toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
     el.innerHTML = `<div class="pe-section"><div class="pe-title">Weather now</div>
       <div class="wx">
-        <div class="wx-main"><span class="wx-icon">${c.is_day === 0 && c.weather_code <= 1 ? '🌙' : icon}</span>
+        <div class="wx-main"><span class="wx-icon mi fill wx-${icon}">${icon}</span>
           <span class="wx-temp">${Math.round(c.temperature_2m)}°</span>
           <span class="wx-text">${esc(label)}<small>Feels ${Math.round(c.apparent_temperature)}° · H ${Math.round(d.temperature_2m_max?.[0])}° L ${Math.round(d.temperature_2m_min?.[0])}°</small></span></div>
         <div class="wx-grid">
@@ -246,9 +250,9 @@ const PlaceExtras = (() => {
       const placeOffset = w.utc_offset_seconds / 60, myOffset = -new Date().getTimezoneOffset();
       if (placeOffset !== myOffset) {
         const t = new Date(Date.now() + (placeOffset - myOffset) * 60000);
-        rows.insertAdjacentHTML('afterbegin', `<div class="info-row"><span class="ir-icon">🕰️</span><span>Local time ${t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${esc(w.timezone_abbreviation || w.timezone)})</span></div>`);
+        rows.insertAdjacentHTML('afterbegin', `<div class="info-row"><span class="ir-icon">${mi('schedule')}</span><span>Local time ${t.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${esc(w.timezone_abbreviation || w.timezone)})</span></div>`);
       }
-      if (w.elevation != null) rows.insertAdjacentHTML('beforeend', `<div class="info-row"><span class="ir-icon">⛰️</span><span>Elevation ${Math.round(w.elevation)} m</span></div>`);
+      if (w.elevation != null) rows.insertAdjacentHTML('beforeend', `<div class="info-row"><span class="ir-icon">${mi('landscape')}</span><span>Elevation ${Math.round(w.elevation)} m</span></div>`);
     }
   }
   function renderNearby(p, list) {
@@ -271,24 +275,26 @@ const PlaceExtras = (() => {
     const rows = $id('pe-extra-rows'); if (!rows) return;
     const t = p.tags || {}, out = [];
     const nice = (v) => v.replace(/_/g, ' ').replace(/;/g, ', ');
-    if (t.cuisine) out.push(['🍽️', `Cuisine: ${nice(t.cuisine)}`]);
+    if (t.cuisine) out.push([mi('restaurant_menu'), `Cuisine: ${nice(t.cuisine)}`]);
     const diet = Object.keys(t).filter((k) => k.startsWith('diet:') && /yes|only/.test(t[k])).map((k) => k.slice(5));
-    if (diet.length) out.push(['🥗', `Diet: ${nice(diet.join(', '))}`]);
+    if (diet.length) out.push([mi('eco'), `Diet: ${nice(diet.join(', '))}`]);
     const pay = Object.keys(t).filter((k) => k.startsWith('payment:') && t[k] === 'yes').map((k) => k.slice(8));
-    if (pay.length) out.push(['💳', `Payment: ${nice(pay.join(', '))}`]);
+    if (pay.length) out.push([mi('credit_card'), `Payment: ${nice(pay.join(', '))}`]);
     const feats = [['internet_access', 'Wi-Fi'], ['outdoor_seating', 'Outdoor seating'], ['takeaway', 'Takeaway'], ['delivery', 'Delivery'], ['air_conditioning', 'Air-conditioned'], ['parking', 'Parking']]
       .filter(([k]) => t[k] && t[k] !== 'no').map(([, l]) => l);
-    if (feats.length) out.push(['✨', feats.join(' · ')]);
-    if (t.operator || t.brand) out.push(['🏢', esc(t.brand || t.operator)]);
-    if (t.email || t['contact:email']) out.push(['✉️', `<a href="mailto:${esc(t.email || t['contact:email'])}">${esc(t.email || t['contact:email'])}</a>`]);
+    if (feats.length) out.push([mi('check_circle'), feats.join(' · ')]);
+    if (t.operator || t.brand) out.push([mi('business'), esc(t.brand || t.operator)]);
+    if (t.email || t['contact:email']) out.push([mi('mail'), `<a href="mailto:${esc(t.email || t['contact:email'])}">${esc(t.email || t['contact:email'])}</a>`]);
     const pc = plusCode(p.lat, p.lon);
-    out.push(['➕', `<span title="Plus code: a short address for anywhere">${pc}</span>`, 'plus']);
+    out.push([mi('pin_drop'), `<span title="Plus code: a short address for anywhere">${pc}</span>`, 'plus']);
     rows.innerHTML = out.map(([i, h, k]) => `<div class="info-row" ${k ? `data-k="${k}"` : ''}><span class="ir-icon">${i}</span><span>${h}</span></div>`).join('');
     rows.querySelector('[data-k="plus"]')?.addEventListener('click', () => copy(pc, 'Plus code copied'));
   }
 
   /** Called by app.js every time a place card is rendered. */
   function render(p) {
+    const my = ++gen;
+    const guard = (fn) => (v) => { cur = my; fn(v); };
     renderStatic(p);
     const k = keyOf(p);
     let c = cache.get(k);
@@ -304,10 +310,10 @@ const PlaceExtras = (() => {
       cache.set(k, c);
       if (cache.size > 40) cache.delete(cache.keys().next().value);
     }
-    c.wiki.then((w) => renderWiki(p, w));
-    c.photos.then((ph) => renderPhotos(p, ph));
-    c.weather.then((w) => renderWeather(p, w));
-    c.nearby.then((n) => renderNearby(p, n));
+    c.wiki.then(guard((w) => renderWiki(p, w)));
+    c.photos.then(guard((ph) => renderPhotos(p, ph)));
+    c.weather.then(guard((w) => renderWeather(p, w)));
+    c.nearby.then(guard((n) => renderNearby(p, n)));
   }
 
   return { render, openStatus, plusCode };
@@ -321,10 +327,10 @@ const Lightbox = (() => {
     el.id = 'lightbox';
     el.className = 'hidden';
     el.innerHTML = `
-      <button class="lb-close" aria-label="Close">✕</button>
-      <button class="lb-nav prev" aria-label="Previous">‹</button>
+      <button class="lb-close" aria-label="Close">${mi('close')}</button>
+      <button class="lb-nav prev" aria-label="Previous">${mi('chevron_left')}</button>
       <figure><img alt=""><figcaption><span class="lb-cap"></span><a class="lb-credit" target="_blank" rel="noopener"></a><span class="lb-count"></span></figcaption></figure>
-      <button class="lb-nav next" aria-label="Next">›</button>`;
+      <button class="lb-nav next" aria-label="Next">${mi('chevron_right')}</button>`;
     document.body.appendChild(el);
     el.querySelector('.lb-close').onclick = close;
     el.querySelector('.prev').onclick = () => go(-1);

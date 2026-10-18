@@ -19,8 +19,8 @@
   const controls = $('#controls');
   controls.insertAdjacentHTML('afterbegin', `
     <button id="compass-btn" class="ctrl round hidden" title="Reset north (N)" aria-label="Reset north"><svg viewBox="0 0 24 24"><path d="M12 2l4 10h-8z" fill="#ea4335"/><path d="M12 22l-4-10h8z" fill="#9aa0a6"/></svg></button>
-    <button id="tilt-btn" class="ctrl round" title="3D view (T)" aria-label="3D view"><span class="ctrl-text">3D</span></button>
-    <button id="fs-btn" class="ctrl round" title="Fullscreen (F)" aria-label="Fullscreen"><svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>`);
+    <button id="tilt-btn" class="ctrl round" title="3D view (T)" aria-label="3D view"><span class="mi">view_in_ar</span></button>
+    <button id="fs-btn" class="ctrl round" title="Fullscreen (F)" aria-label="Fullscreen"><span class="mi">fullscreen</span></button>`);
 
   const compass = $('#compass-btn');
   function syncCompass() {
@@ -46,7 +46,7 @@
     if (document.fullscreenElement) document.exitFullscreen?.();
     else document.documentElement.requestFullscreen?.().catch(() => toast('Fullscreen not available here'));
   }
-  document.addEventListener('fullscreenchange', () => $('#fs-btn').classList.toggle('on', !!document.fullscreenElement));
+  document.addEventListener('fullscreenchange', () => { $('#fs-btn').classList.toggle('on', !!document.fullscreenElement); $('#fs-btn .mi').textContent = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen'; });
 
   /* ---------------- 3D buildings / terrain / globe ---------------- */
   function firstSymbolId() { return map.getStyle().layers.find((l) => l.type === 'symbol')?.id; }
@@ -84,9 +84,9 @@
   $('#layer-menu').insertAdjacentHTML('beforeend', `
     <div class="layer-toggles">
       <div class="lt-title">Map details</div>
-      <label class="lt"><input type="checkbox" id="opt-terrain"><span class="sw"></span>⛰️ Terrain</label>
-      <label class="lt"><input type="checkbox" id="opt-globe"><span class="sw"></span>🌍 Globe view</label>
-      <label class="lt"><input type="checkbox" id="opt-3d"><span class="sw"></span>🏙️ 3D buildings</label>
+      <label class="lt"><input type="checkbox" id="opt-terrain"><span class="sw"></span><span class="mi">landscape</span>Terrain</label>
+      <label class="lt"><input type="checkbox" id="opt-globe"><span class="sw"></span><span class="mi">public</span>Globe view</label>
+      <label class="lt"><input type="checkbox" id="opt-3d"><span class="sw"></span><span class="mi">location_city</span>3D buildings</label>
     </div>`);
   const tTerrain = $('#opt-terrain'), tGlobe = $('#opt-globe'), t3d = $('#opt-3d');
   tTerrain.checked = opts.terrain; tGlobe.checked = opts.globe;
@@ -130,7 +130,7 @@
     let m = $('#modal');
     if (!m) {
       m = document.createElement('div'); m.id = 'modal'; m.className = 'hidden';
-      m.innerHTML = '<div class="modal-card card"><div class="modal-head"><h2></h2><button class="icon-btn modal-x" aria-label="Close">✕</button></div><div class="modal-body"></div></div>';
+      m.innerHTML = '<div class="modal-card card"><div class="modal-head"><h2></h2><button class="icon-btn modal-x" aria-label="Close"><span class="mi">close</span></button></div><div class="modal-body"></div></div>';
       document.body.appendChild(m);
       m.addEventListener('click', (e) => { if (e.target === m || e.target.closest('.modal-x')) m.classList.add('hidden'); });
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !m.classList.contains('hidden')) { m.classList.add('hidden'); e.stopPropagation(); } }, true);
@@ -166,11 +166,11 @@
   const foot = $('#drawer .drawer-foot');
   foot.insertAdjacentHTML('beforebegin', `
     <div class="drawer-sep"></div>
-    <button class="drawer-item" data-x="embed">🧩 Embed this map</button>
-    <button class="drawer-item" data-x="export">⬇️ Export saved places</button>
-    <button class="drawer-item" data-x="import">⬆️ Import places (GeoJSON)</button>
-    <button class="drawer-item" data-x="keys">⌨️ Keyboard shortcuts</button>
-    <button class="drawer-item hidden" data-x="install">📲 Install app</button>`);
+    <button class="drawer-item" data-x="embed"><span class="mi">code_blocks</span>Embed this map</button>
+    <button class="drawer-item" data-x="export"><span class="mi">download</span>Export saved places</button>
+    <button class="drawer-item" data-x="import"><span class="mi">upload</span>Import places (GeoJSON)</button>
+    <button class="drawer-item" data-x="keys"><span class="mi">keyboard</span>Keyboard shortcuts</button>
+    <button class="drawer-item hidden" data-x="install"><span class="mi">install_mobile</span>Install app</button>`);
   $$('#drawer [data-x]').forEach((b) => b.addEventListener('click', () => {
     $('#drawer').classList.remove('open'); $('#drawer-backdrop').classList.add('hidden');
     ({ embed: showEmbed, export: exportSaved, import: importSaved, keys: showShortcuts, install: installApp })[b.dataset.x]();

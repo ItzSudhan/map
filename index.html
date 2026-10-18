@@ -6,6 +6,10 @@
   <title>Map</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ea4335' d='M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z'/></svg>" />
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" />
+  <link rel="stylesheet" id="icon-font" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&amp;icon_names=ac_unit,accessible,account_balance,add,air_conditioning,apartment,arrow_back,arrow_back_ios_new,arrow_forward_ios,attractions,bakery_dining,beach_access,bookmark,bookmarks,business,call,castle,check_circle,checkroom,chevron_left,chevron_right,child_care,clear_night,close,cloud,code,code_blocks,cottage,credit_card,dark_mode,delete,delivery,dentistry,devices,diamond,directions,directions_bike,directions_boat,directions_bus,directions_car,directions_walk,download,eco,edit_location_alt,ev_station,fastfood,fitness_center,flight,foggy,forest,fork_left,fork_right,fort,fullscreen,fullscreen_exit,help,history,home,hotel,icecream,install_mobile,internet_access,keyboard,landscape,language,link,local_atm,local_bar,local_cafe,local_florist,local_gas_station,local_grocery_store,local_hospital,local_library,local_mall,local_parking,local_pharmacy,local_police,local_post_office,local_taxi,location_city,location_on,mail,map,medical_services,menu,menu_book,merge,museum,my_location,nightlife,outdoor_seating,palette,park,parking,partly_cloudy_day,partly_cloudy_night,pets,photo_camera,photo_library,pin_drop,pool,public,rainy,rainy_heavy,rainy_light,rainy_snow,ramp_left,ramp_right,remove,restaurant,restaurant_menu,road,roundabout_left,roundabout_right,schedule,school,search,search_off,share,smartphone,sports_bar,sports_soccer,stadium,star,stethoscope,storefront,straight,straighten,streetview,subway,sunny,swap_vert,takeaway,temple_hindu,theater_comedy,theaters,thermostat,thunderstorm,toys,train,travel_explore,trip_origin,turn_left,turn_right,turn_sharp_left,turn_sharp_right,turn_slight_left,turn_slight_right,u_turn_left,upload,view_in_ar,water,wc,weather_snowy&amp;display=block" />
   <link rel="stylesheet" href="style.css" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#1a73e8" />
@@ -16,31 +20,28 @@
 
   <!-- Search card -->
   <div id="search-card" class="card">
-    <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Menu">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    <button id="menu-btn" class="icon-btn" title="Menu" aria-label="Menu"><span class="mi">menu</span>
     </button>
     <input id="search-input" type="text" placeholder="Search places, addresses, coordinates" autocomplete="off" spellcheck="false" />
-    <button id="clear-btn" class="icon-btn hidden" title="Clear" aria-label="Clear">
-      <svg viewBox="0 0 24 24"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>
+    <button id="clear-btn" class="icon-btn hidden" title="Clear" aria-label="Clear"><span class="mi">close</span>
     </button>
     <span class="divider"></span>
-    <button id="directions-btn" class="icon-btn blue" title="Directions" aria-label="Directions">
-      <svg viewBox="0 0 24 24"><path d="M21.7 11.3l-9-9a1 1 0 00-1.4 0l-9 9a1 1 0 000 1.4l9 9a1 1 0 001.4 0l9-9a1 1 0 000-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 011-1h5V7.5l3.5 3.5-3.5 3.5z"/></svg>
+    <button id="directions-btn" class="icon-btn blue" title="Directions" aria-label="Directions"><span class="mi fill">directions</span>
     </button>
     <ul id="suggestions" class="suggestions hidden"></ul>
   </div>
 
   <!-- Category chips -->
   <div id="chips">
-    <button class="chip" data-q="restaurant">🍴 Restaurants</button>
-    <button class="chip" data-q="cafe">☕ Coffee</button>
-    <button class="chip" data-q="hotel">🛏️ Hotels</button>
-    <button class="chip" data-q="fuel">⛽ Petrol</button>
-    <button class="chip" data-q="supermarket">🛒 Groceries</button>
-    <button class="chip" data-q="pharmacy">💊 Pharmacies</button>
-    <button class="chip" data-q="park">🌳 Parks</button>
-    <button class="chip" data-q="atm">🏧 ATMs</button>
-    <button class="chip" data-q="hospital">🏥 Hospitals</button>
+    <button class="chip" data-q="restaurant"><span class="mi">restaurant</span>Restaurants</button>
+    <button class="chip" data-q="cafe"><span class="mi">local_cafe</span>Coffee</button>
+    <button class="chip" data-q="hotel"><span class="mi">hotel</span>Hotels</button>
+    <button class="chip" data-q="fuel"><span class="mi">local_gas_station</span>Petrol</button>
+    <button class="chip" data-q="supermarket"><span class="mi">local_grocery_store</span>Groceries</button>
+    <button class="chip" data-q="pharmacy"><span class="mi">local_pharmacy</span>Pharmacies</button>
+    <button class="chip" data-q="park"><span class="mi">park</span>Parks</button>
+    <button class="chip" data-q="atm"><span class="mi">local_atm</span>ATMs</button>
+    <button class="chip" data-q="hospital"><span class="mi">local_hospital</span>Hospitals</button>
   </div>
 
   <!-- Side panel (place details / directions / results / saved) -->
@@ -51,24 +52,23 @@
   <!-- Menu drawer -->
   <div id="drawer-backdrop" class="hidden"></div>
   <nav id="drawer">
-    <div class="drawer-title"><span class="logo"><b>Map</b></span></div>
-    <button class="drawer-item" data-action="saved">⭐ Saved places</button>
-    <button class="drawer-item" data-action="share">🔗 Share this map view</button>
-    <button class="drawer-item" data-action="theme">🌓 Toggle dark map</button>
+    <div class="drawer-title"><span class="logo"><span class="mi fill logo-pin">location_on</span><b>Map</b></span></div>
+    <button class="drawer-item" data-action="saved"><span class="mi">bookmarks</span>Saved places</button>
+    <button class="drawer-item" data-action="share"><span class="mi">link</span>Share this map view</button>
+    <button class="drawer-item" data-action="theme"><span class="mi">dark_mode</span>Toggle dark map</button>
     <div class="drawer-sep"></div>
-    <a class="drawer-item" href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener">✏️ Fix the map on OpenStreetMap</a>
-    <a class="drawer-item" href="https://github.com/ItzSudhan/map" target="_blank" rel="noopener" id="gh-link">📦 Source code</a>
+    <a class="drawer-item" href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener"><span class="mi">edit_location_alt</span>Fix the map on OpenStreetMap</a>
+    <a class="drawer-item" href="https://github.com/ItzSudhan/map" target="_blank" rel="noopener" id="gh-link"><span class="mi">code</span>Source code</a>
     <div class="drawer-foot">Map data © OpenStreetMap contributors · Tiles OpenFreeMap · Search Photon · Routing OSRM</div>
   </nav>
 
   <!-- Right-side controls -->
   <div id="controls">
-    <button id="locate-btn" class="ctrl" title="Your location" aria-label="Your location">
-      <svg viewBox="0 0 24 24"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm8.9 3A9 9 0 0013 3.1V1h-2v2.1A9 9 0 003.1 11H1v2h2.1a9 9 0 007.9 7.9V23h2v-2.1a9 9 0 007.9-7.9H23v-2h-2.1zM12 19a7 7 0 110-14 7 7 0 010 14z"/></svg>
+    <button id="locate-btn" class="ctrl" title="Your location" aria-label="Your location"><span class="mi">my_location</span>
     </button>
     <div class="ctrl-group">
-      <button id="zoom-in" class="ctrl" title="Zoom in" aria-label="Zoom in"><svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg></button>
-      <button id="zoom-out" class="ctrl" title="Zoom out" aria-label="Zoom out"><svg viewBox="0 0 24 24"><path d="M19 13H5v-2h14z"/></svg></button>
+      <button id="zoom-in" class="ctrl" title="Zoom in" aria-label="Zoom in"><span class="mi">add</span></button>
+      <button id="zoom-out" class="ctrl" title="Zoom out" aria-label="Zoom out"><span class="mi">remove</span></button>
     </div>
   </div>
 
@@ -79,22 +79,23 @@
       <span>Layers</span>
     </button>
     <div id="layer-menu" class="card hidden">
-      <button class="layer-opt" data-style="liberty"><div class="thumb t-liberty"></div>Default</button>
-      <button class="layer-opt" data-style="bright"><div class="thumb t-bright"></div>Bright</button>
-      <button class="layer-opt" data-style="positron"><div class="thumb t-positron"></div>Light</button>
-      <button class="layer-opt" data-style="dark"><div class="thumb t-dark"></div>Dark</button>
-      <button class="layer-opt" data-style="satellite"><div class="thumb t-satellite"></div>Satellite</button>
+      <button class="layer-opt" data-style="liberty"><div class="thumb t-liberty" data-preview="liberty"></div>Default</button>
+      <button class="layer-opt" data-style="bright"><div class="thumb t-bright" data-preview="bright"></div>Bright</button>
+      <button class="layer-opt" data-style="positron"><div class="thumb t-positron" data-preview="positron"></div>Light</button>
+      <button class="layer-opt" data-style="dark"><div class="thumb t-dark" data-preview="dark"></div>Dark</button>
+      <button class="layer-opt" data-style="satellite"><div class="thumb t-satellite" data-preview="satellite"></div>Satellite</button>
     </div>
   </div>
 
   <!-- Context menu -->
   <ul id="ctx-menu" class="card hidden">
     <li data-action="coords" class="ctx-coords"></li>
-    <li data-action="whats-here">What's here?</li>
-    <li data-action="from">Directions from here</li>
-    <li data-action="to">Directions to here</li>
-    <li data-action="measure-reset" class="hidden">Clear measurement</li>
-    <li data-action="measure">Measure distance</li>
+    <li data-action="whats-here"><span class="mi">help</span>What's here?</li>
+    <li data-action="from"><span class="mi">trip_origin</span>Directions from here</li>
+    <li data-action="to"><span class="mi">location_on</span>Directions to here</li>
+    <li data-action="measure-reset" class="hidden"><span class="mi">delete</span>Clear measurement</li>
+    <li data-action="streetview"><span class="mi">streetview</span>Street View here</li>
+    <li data-action="measure"><span class="mi">straighten</span>Measure distance</li>
   </ul>
 
   <div id="measure-badge" class="card hidden"></div>
@@ -105,5 +106,6 @@
   <script src="search.js"></script>
   <script src="extras.js"></script>
   <script src="mapx.js"></script>
+  <script src="streetview.js"></script>
 </body>
 </html>

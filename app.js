@@ -36,32 +36,47 @@ const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
+/** Material Symbols icon (Google's open-source icon set). */
+const mi = (name, cls = '') => `<span class="mi ${cls}">${name}</span>`;
 const ICONS = {
   pin: '<svg viewBox="0 0 27 43"><path fill="#ea4335" stroke="#a52714" d="M13.5 1C6.6 1 1 6.6 1 13.5 1 23 13.5 42 13.5 42S26 23 26 13.5C26 6.6 20.4 1 13.5 1z"/><circle cx="13.5" cy="13.5" r="5" fill="#a52714"/></svg>',
-  directions: '<svg viewBox="0 0 24 24"><path d="M21.7 11.3l-9-9a1 1 0 00-1.4 0l-9 9a1 1 0 000 1.4l9 9a1 1 0 001.4 0l9-9a1 1 0 000-1.4zM14 14.5V12h-4v3H8v-4a1 1 0 011-1h5V7.5l3.5 3.5-3.5 3.5z"/></svg>',
-  save: '<svg viewBox="0 0 24 24"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2zm0 15l-5-2.2L7 18V5h10v13z"/></svg>',
-  saved: '<svg viewBox="0 0 24 24"><path d="M17 3H7a2 2 0 00-2 2v16l7-3 7 3V5a2 2 0 00-2-2z"/></svg>',
-  share: '<svg viewBox="0 0 24 24"><path d="M18 16a3 3 0 00-2 .8L8.9 12.7a3 3 0 000-1.4L16 7.2A3 3 0 1015 5c0 .2 0 .5.1.7L8 9.8a3 3 0 100 4.4l7.1 4.2-.1.6a3 3 0 103-3z"/></svg>',
-  nearby: '<svg viewBox="0 0 24 24"><path d="M15.5 14h-.8l-.3-.3A6.5 6.5 0 109.5 16a6.5 6.5 0 004.2-1.6l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 110-9 4.5 4.5 0 010 9z"/></svg>',
-  car: '<svg viewBox="0 0 24 24"><path d="M18.9 6a1.5 1.5 0 00-1.4-1h-11a1.5 1.5 0 00-1.4 1L3 12v8a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-8l-2.1-6zM6.5 16a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm11 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM5 11l1.5-4.5h11L19 11H5z"/></svg>',
-  bike: '<svg viewBox="0 0 24 24"><path d="M15.5 5.5a2 2 0 100-4 2 2 0 000 4zM5 12a5 5 0 100 10 5 5 0 000-10zm0 8.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7zm5.8-10l2.4-2.4.8.8a7 7 0 005 2.1V9a5 5 0 01-3.6-1.5l-1.9-1.9a2 2 0 00-1.4-.6 2 2 0 00-1.4.6L7.8 8.4a2 2 0 00-.6 1.4c0 .6.3 1.1.6 1.4L11 14v5h2v-6.2l-2.2-2.3zM19 12a5 5 0 100 10 5 5 0 000-10zm0 8.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"/></svg>',
-  foot: '<svg viewBox="0 0 24 24"><path d="M13.5 5.5a2 2 0 100-4 2 2 0 000 4zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3A7.3 7.3 0 0019 13v-2a5 5 0 01-4.3-2.4l-1-1.6a2 2 0 00-1.7-1c-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7"/></svg>',
-  swap: '<svg viewBox="0 0 24 24"><path d="M16 17.01V10h-2v7.01h-3L15 21l4-3.99h-3zM9 3L5 6.99h3V14h2V6.99h3L9 3z"/></svg>',
-  close: '<svg viewBox="0 0 24 24"><path d="M19 6.4L17.6 5 12 10.6 6.4 5 5 6.4 10.6 12 5 17.6 6.4 19 12 13.4 17.6 19 19 17.6 13.4 12z"/></svg>',
-  back: '<svg viewBox="0 0 24 24"><path d="M20 11H7.8l5.6-5.6L12 4l-8 8 8 8 1.4-1.4L7.8 13H20z"/></svg>',
-  smallPin: '<svg viewBox="0 0 24 24"><path d="M12 2a7 7 0 00-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 00-7-7z"/></svg>',
+  directions: mi('directions', 'fill'), save: mi('bookmark'), saved: mi('bookmark', 'fill'), share: mi('share'), nearby: mi('travel_explore'),
+  car: mi('directions_car'), bike: mi('directions_bike'), foot: mi('directions_walk'), swap: mi('swap_vert'), close: mi('close'),
+  back: mi('arrow_back'), smallPin: mi('location_on', 'fill'), streetview: mi('streetview'),
 };
 
-/* ---------------- Category emoji ---------------- */
-const CAT_EMOJI = {
-  restaurant: '🍴', fast_food: '🍔', cafe: '☕', bar: '🍸', pub: '🍺', hotel: '🛏️', hostel: '🛏️', guest_house: '🛏️',
-  fuel: '⛽', supermarket: '🛒', convenience: '🏪', pharmacy: '💊', hospital: '🏥', clinic: '🏥', doctors: '🩺',
-  school: '🏫', university: '🎓', college: '🎓', park: '🌳', bank: '🏦', atm: '🏧', parking: '🅿️',
-  place_of_worship: '🛐', museum: '🏛️', cinema: '🎬', station: '🚉', bus_station: '🚌', bus_stop: '🚏', aerodrome: '✈️',
-  city: '🏙️', town: '🏘️', village: '🏡', country: '🌍', state: '🗺️', house: '🏠', residential: '🏘️', attraction: '📸',
-  viewpoint: '🔭', peak: '⛰️', beach: '🏖️', water: '💧', river: '🌊', mall: '🛍️', clothes: '👕', bakery: '🥐',
+/* ---------------- Category icons (Material Symbols + Google-style colour groups) ---------------- */
+const CAT_ICON = {
+  restaurant: ['restaurant', 'food'], fast_food: ['fastfood', 'food'], cafe: ['local_cafe', 'food'], bar: ['local_bar', 'food'], pub: ['sports_bar', 'food'],
+  bakery: ['bakery_dining', 'food'], ice_cream: ['icecream', 'food'], food_court: ['restaurant', 'food'],
+  hotel: ['hotel', 'lodging'], hostel: ['hotel', 'lodging'], guest_house: ['hotel', 'lodging'], motel: ['hotel', 'lodging'], apartment: ['hotel', 'lodging'],
+  fuel: ['local_gas_station', 'service'], charging_station: ['ev_station', 'service'], bank: ['account_balance', 'service'], atm: ['local_atm', 'service'],
+  parking: ['local_parking', 'service'], police: ['local_police', 'service'], post_office: ['local_post_office', 'service'], toilets: ['wc', 'service'],
+  supermarket: ['local_grocery_store', 'shop'], convenience: ['storefront', 'shop'], mall: ['local_mall', 'shop'], clothes: ['checkroom', 'shop'],
+  marketplace: ['storefront', 'shop'], electronics: ['devices', 'shop'], mobile_phone: ['smartphone', 'shop'], jewelry: ['diamond', 'shop'], books: ['menu_book', 'shop'],
+  pharmacy: ['local_pharmacy', 'health'], hospital: ['local_hospital', 'health'], clinic: ['medical_services', 'health'], doctors: ['stethoscope', 'health'], dentist: ['dentistry', 'health'],
+  school: ['school', 'edu'], university: ['school', 'edu'], college: ['school', 'edu'], library: ['local_library', 'edu'], kindergarten: ['child_care', 'edu'],
+  park: ['park', 'nature'], garden: ['local_florist', 'nature'], playground: ['toys', 'nature'], viewpoint: ['landscape', 'nature'], peak: ['landscape', 'nature'],
+  beach: ['beach_access', 'nature'], water: ['water', 'nature'], lake: ['water', 'nature'], river: ['water', 'nature'], reservoir: ['water', 'nature'], pond: ['water', 'nature'],
+  zoo: ['pets', 'nature'], nature_reserve: ['forest', 'nature'], forest: ['forest', 'nature'],
+  place_of_worship: ['temple_hindu', 'culture'], museum: ['museum', 'culture'], attraction: ['photo_camera', 'culture'], monument: ['account_balance', 'culture'],
+  memorial: ['account_balance', 'culture'], castle: ['castle', 'culture'], fort: ['fort', 'culture'], palace: ['castle', 'culture'], artwork: ['palette', 'culture'],
+  cinema: ['theaters', 'fun'], theatre: ['theater_comedy', 'fun'], stadium: ['stadium', 'fun'], sports_centre: ['sports_soccer', 'fun'], fitness_centre: ['fitness_center', 'fun'],
+  theme_park: ['attractions', 'fun'], nightclub: ['nightlife', 'fun'], swimming_pool: ['pool', 'fun'],
+  station: ['train', 'transit'], halt: ['train', 'transit'], bus_station: ['directions_bus', 'transit'], bus_stop: ['directions_bus', 'transit'], aerodrome: ['flight', 'transit'],
+  subway: ['subway', 'transit'], ferry_terminal: ['directions_boat', 'transit'], taxi: ['local_taxi', 'transit'],
+  city: ['location_city', 'place'], town: ['location_city', 'place'], suburb: ['location_city', 'place'], neighbourhood: ['location_city', 'place'], quarter: ['location_city', 'place'],
+  village: ['cottage', 'place'], hamlet: ['cottage', 'place'], country: ['public', 'place'], state: ['map', 'place'], county: ['map', 'place'], administrative: ['map', 'place'],
+  house: ['home', 'place'], residential: ['apartment', 'place'], apartments: ['apartment', 'place'], office: ['business', 'place'], company: ['business', 'place'],
 };
-const emojiFor = (p) => CAT_EMOJI[p.value] || CAT_EMOJI[p.type] || '📍';
+const ROAD_VALUES = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'unclassified', 'service', 'living_street', 'road', 'footway', 'path', 'track', 'cycleway', 'pedestrian'];
+function catOf(p) {
+  if (p.type === 'highway' && ROAD_VALUES.includes(p.value)) return ['road', 'place'];
+  return CAT_ICON[p.value] || CAT_ICON[p.type] || ['location_on', 'place'];
+}
+/** Category icon for a place, e.g. a coloured fork-and-knife for restaurants. */
+const emojiFor = (p) => { const [icon, group] = catOf(p); return `<span class="mi fill cat-${group}">${icon}</span>`; };
+const catGroup = (p) => catOf(p)[1];
 
 /* ---------------- State ---------------- */
 const state = {
@@ -235,7 +250,8 @@ const CATEGORY_WORDS = {
   supermarket: ['grocery', 'groceries', 'supermarket', 'kirana', 'store'], pharmacy: ['pharmacy', 'medical', 'medical store', 'chemist', 'medicine'],
   park: ['park', 'parks', 'garden'], atm: ['atm', 'atms', 'cash'], hospital: ['hospital', 'hospitals', 'clinic', 'doctor'],
 };
-const CAT_TITLE = { restaurant: '🍴 Restaurants', cafe: '☕ Coffee', hotel: '🛏️ Hotels', fuel: '⛽ Petrol pumps', supermarket: '🛒 Groceries', pharmacy: '💊 Pharmacies', park: '🌳 Parks', atm: '🏧 ATMs', hospital: '🏥 Hospitals' };
+const CAT_NAME = { restaurant: 'Restaurants', cafe: 'Coffee', hotel: 'Hotels', fuel: 'Petrol pumps', supermarket: 'Groceries', pharmacy: 'Pharmacies', park: 'Parks', atm: 'ATMs', hospital: 'Hospitals' };
+const CAT_CHIP_ICON = { restaurant: 'restaurant', cafe: 'local_cafe', hotel: 'hotel', fuel: 'local_gas_station', supermarket: 'local_grocery_store', pharmacy: 'local_pharmacy', park: 'park', atm: 'local_atm', hospital: 'local_hospital' };
 function matchCategory(q) {
   const t = q.toLowerCase().replace(/\b(near me|nearby|near by|around me|close by)\b/g, '').trim();
   if (!t) return null;
@@ -277,7 +293,7 @@ function attachAutocomplete(input, list, onPick, { extra = () => [], allowAction
     const dist = it.action ? '' : distanceLabel(it);
     return `
       <li data-i="${i}" style="--i:${i}" class="${i === active ? 'active' : ''} ${it.action ? 's-action' : ''}">
-        <span class="s-icon ${it.iconClass || ''}">${it.icon || emojiFor(it)}</span>
+        <span class="s-icon ${it.iconClass || (it.icon ? '' : 'g-' + catGroup(it))}">${it.icon || emojiFor(it)}</span>
         <span class="s-text"><div class="s-name">${it.action ? esc(it.name) : highlight(it.name, lastQ)}</div>${sub ? `<div class="s-sub">${esc(sub)}</div>` : ''}</span>
         ${dist ? `<span class="s-dist">${dist}</span>` : ''}
       </li>`;
@@ -297,12 +313,12 @@ function attachAutocomplete(input, list, onPick, { extra = () => [], allowAction
     const rows = [...extra(q)];
     if (allowActions && q) {
       const coords = parseCoords(q);
-      if (coords) rows.unshift({ action: 'coords', ...coords, name: `Go to ${fmtCoord(coords.lat, coords.lon)}`, icon: '🧭' });
+      if (coords) rows.unshift({ action: 'coords', ...coords, name: `Go to ${fmtCoord(coords.lat, coords.lon)}`, icon: mi('my_location') });
       const parsed = Search.parse(q);
       const cat = matchCategory(parsed.where ? parsed.what : q);
-      const catName = cat && CAT_TITLE[cat].replace(/^\S+\s/, '');
-      if (cat && parsed.where) rows.unshift({ action: 'category', cat, where: parsed.where, name: `${catName} in ${parsed.where.replace(/^./, (c) => c.toUpperCase())}`, short: 'Search that area', icon: CAT_TITLE[cat].split(' ')[0] });
-      else if (cat) rows.unshift({ action: 'category', cat, name: `${catName} nearby`, short: 'Search this area', icon: CAT_TITLE[cat].split(' ')[0] });
+      const catName = cat && CAT_NAME[cat];
+      if (cat && parsed.where) rows.unshift({ action: 'category', cat, where: parsed.where, name: `${catName} in ${parsed.where.replace(/^./, (c) => c.toUpperCase())}`, short: 'Search that area', icon: mi(CAT_CHIP_ICON[cat]) });
+      else if (cat) rows.unshift({ action: 'category', cat, name: `${catName} nearby`, short: 'Search this area', icon: mi(CAT_CHIP_ICON[cat]) });
     }
     return rows;
   };
@@ -315,8 +331,8 @@ function attachAutocomplete(input, list, onPick, { extra = () => [], allowAction
       if (my !== seq || input.value.trim() !== q) return;
       items = [...local(q), ...places];
       if (allowActions) items.push(places.length
-        ? { action: 'search', q, name: `See all results for “${q}”`, icon: '🔍' }
-        : { action: 'none', name: `No places found for “${q}”`, short: 'Check the spelling or try a nearby city', icon: '🤷' });
+        ? { action: 'search', q, name: `See all results for “${q}”`, icon: mi('search') }
+        : { action: 'none', name: `No places found for “${q}”`, short: 'Check the spelling or try a nearby city', icon: mi('search_off') });
       loading = false; active = -1; render(true);
     } catch { if (my === seq) { loading = false; render(); } }
   }, 180);
@@ -358,7 +374,7 @@ function attachAutocomplete(input, list, onPick, { extra = () => [], allowAction
 
 attachAutocomplete(searchInput, suggestionsEl, (it) => {
   if (it.action === 'search') { searchInput.value = it.q; syncClear(); return runSearch(it.q); }
-  if (it.action === 'category') { searchInput.value = it.name || CAT_TITLE[it.cat].replace(/^\S+\s/, ''); syncClear(); return categoryIn(it.cat, it.where); }
+  if (it.action === 'category') { searchInput.value = it.name || CAT_NAME[it.cat]; syncClear(); return categoryIn(it.cat, it.where); }
   if (it.action === 'coords') { searchInput.value = fmtCoord(it.lat, it.lon); syncClear(); map.flyTo({ center: [it.lon, it.lat], zoom: 16 }); return whatsHere({ lat: it.lat, lng: it.lon }); }
   searchInput.value = it.name; syncClear();
   recent.add(it);
@@ -367,8 +383,8 @@ attachAutocomplete(searchInput, suggestionsEl, (it) => {
   allowActions: true,
   extra: (q) => {
     if (q) return [];
-    const rec = recent.list().map((r) => ({ ...r, icon: '🕘', iconClass: 'muted' }));
-    const saved = state.saved.slice(0, 3).map((s) => ({ ...s, icon: '⭐' }));
+    const rec = recent.list().map((r) => ({ ...r, icon: mi('history'), iconClass: 'muted' }));
+    const saved = state.saved.slice(0, 3).map((s) => ({ ...s, icon: mi('star', 'fill'), iconClass: 'saved' }));
     return [
       ...(saved.length ? [{ header: 'Saved' }, ...saved] : []),
       ...(rec.length ? [{ header: 'Recent', clear: true }, ...rec.slice(0, 6)] : []),
@@ -429,9 +445,9 @@ async function nearbySearch(cat) {
     if (state.me) map.jumpTo({ center: [state.me.lon, state.me.lat], zoom: 14 });
     else { toast('Zoom in to an area first, or tap the location button'); return; }
   }
-  const title = CAT_TITLE[cat];
+  const title = CAT_NAME[cat];
   $$('.chip').forEach((c) => c.classList.toggle('active', c.dataset.q === cat));
-  openPanel(skeleton(`Finding ${title.replace(/^\S+\s/, '').toLowerCase()} nearby…`));
+  openPanel(skeleton(`Finding ${title.toLowerCase()} nearby…`));
   chipAbort?.abort(); chipAbort = new AbortController();
   const b = map.getBounds();
   const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map((n) => n.toFixed(5)).join(',');
@@ -463,7 +479,7 @@ function showResults(places, title, { keepView = false } = {}) {
   if (!places.length) { openPanel(`<div class="results-head">${esc(title)}</div><div class="empty">No results found.</div>`); return; }
   openPanel(`<div class="results-head">${esc(title)}</div>` + places.map((p, i) => `
     <div class="result" data-i="${i}">
-      <div class="r-icon">${emojiFor(p)}</div>
+      <div class="r-icon g-${catGroup(p)}">${emojiFor(p)}</div>
       <div class="r-main"><div class="r-name">${esc(p.name)}</div><div class="r-sub">${esc([p.category, p.short].filter(Boolean).join(' · '))}</div></div>
       <div class="r-dist">${distanceLabel(p)}</div>
     </div>`).join(''));
@@ -542,20 +558,20 @@ async function showPlace(p, { fly = false, fromResults = false } = {}) {
 function renderPlace(p, fromResults, animate = true) {
   const t = p.tags || {};
   const rows = [];
-  if (p.address) rows.push(['📍', esc(p.address), 'addr']);
-  if (t.opening_hours) rows.push(['🕒', esc(t.opening_hours.replace(/;\s*/g, '; '))]);
+  if (p.address) rows.push([mi('location_on'), esc(p.address), 'addr']);
+  if (t.opening_hours) rows.push([mi('schedule'), esc(t.opening_hours.replace(/;\s*/g, '; '))]);
   const site = t.website || t['contact:website'];
-  if (site) rows.push(['🌐', `<a href="${esc(/^https?:/.test(site) ? site : 'https://' + site)}" target="_blank" rel="noopener">${esc(site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a>`]);
+  if (site) rows.push([mi('language'), `<a href="${esc(/^https?:/.test(site) ? site : 'https://' + site)}" target="_blank" rel="noopener">${esc(site.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))}</a>`]);
   const phone = t.phone || t['contact:phone'];
-  if (phone) rows.push(['📞', `<a href="tel:${esc(phone.split(';')[0])}">${esc(phone.split(';')[0])}</a>`]);
-  if (t.wheelchair) rows.push(['♿', `Wheelchair access: ${esc(t.wheelchair)}`]);
-  rows.push(['🧭', fmtCoord(p.lat, p.lon), 'coords']);
-  if (state.me) rows.push(['📏', `${fmtDist(haversine([state.me.lon, state.me.lat], [p.lon, p.lat]))} from you (straight line)`]);
+  if (phone) rows.push([mi('call'), `<a href="tel:${esc(phone.split(';')[0])}">${esc(phone.split(';')[0])}</a>`]);
+  if (t.wheelchair) rows.push([mi('accessible'), `Wheelchair access: ${esc(t.wheelchair)}`]);
+  rows.push([mi('my_location'), fmtCoord(p.lat, p.lon), 'coords']);
+  if (state.me) rows.push([mi('straighten'), `${fmtDist(haversine([state.me.lon, state.me.lat], [p.lon, p.lat]))} from you (straight line)`]);
 
   const osmLink = p.osm ? `https://www.openstreetmap.org/${OSM_TYPE[p.osm.type]}/${p.osm.id}` : `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=18/${p.lat}/${p.lon}`;
   openPanel(`
     ${fromResults && state.results ? `<button class="steps-toggle" id="back-results" style="margin:-56px 0 16px 16px;display:flex;gap:6px;align-items:center;position:relative">${ICONS.back} Back to results</button>` : ''}
-    <div class="place-hero" id="pe-hero"><span>${emojiFor(p)}</span></div>
+    <div class="place-hero g-${catGroup(p)}" id="pe-hero"><span>${emojiFor(p)}</span></div>
     <div class="place-head"><h1>${esc(p.name)}</h1><div class="cat">${esc(p.category)}</div><div id="pe-status"></div></div>
     <div class="actions">
       <button class="action primary" data-a="dir"><span class="circ">${ICONS.directions}</span>Directions</button>
@@ -564,6 +580,7 @@ function renderPlace(p, fromResults, animate = true) {
       <button class="action" data-a="share"><span class="circ">${ICONS.share}</span>Share</button>
     </div>
     <div id="pe-about"></div>
+    <div id="pe-streetview"></div>
     ${rows.map(([i, h, k]) => `<div class="info-row" ${k ? `data-k="${k}"` : ''}><span class="ir-icon">${i}</span><span>${h}</span></div>`).join('')}
     <div id="pe-extra-rows"></div>
     <div id="pe-weather"></div>
@@ -573,6 +590,7 @@ function renderPlace(p, fromResults, animate = true) {
   `, { animate, keepScroll: !animate });
   $('#back-results')?.addEventListener('click', () => showResults(state.results.places, state.results.title, { keepView: true }));
   if (typeof PlaceExtras !== 'undefined') PlaceExtras.render(p);
+  if (typeof StreetView !== 'undefined') StreetView.preview(p);
   $$('#panel .info-row[data-k]').forEach((r) => r.addEventListener('click', () =>
     copy(r.dataset.k === 'coords' ? fmtCoord(p.lat, p.lon) : p.address, r.dataset.k === 'coords' ? 'Coordinates copied' : 'Address copied')));
   $$('#panel .action').forEach((b) => b.addEventListener('click', () => {
@@ -635,6 +653,7 @@ async function whatsHere(lngLat) {
 /* Click on a labelled POI on the base map */
 map.on('click', (e) => {
   if (state.measure.on) return addMeasurePoint(e.lngLat);
+  if (document.body.classList.contains('sv-mode') || document.body.classList.contains('sv-open')) return; // Street View handles clicks
   hideCtx();
   const feats = map.queryRenderedFeatures(e.point).filter((f) => f.properties?.name && ['poi', 'place', 'aerodrome_label', 'transportation_name', 'mountain_peak', 'water_name'].includes(f.sourceLayer) && f.layer.type === 'symbol');
   const poi = feats.find((f) => f.sourceLayer === 'poi' || f.sourceLayer === 'aerodrome_label' || f.sourceLayer === 'mountain_peak') || feats.find((f) => f.sourceLayer === 'place');
@@ -689,6 +708,7 @@ ctx.addEventListener('click', (e) => {
   else if (a === 'from') { openDirections({ from: wp }); labelWaypoint('from', wp); }
   else if (a === 'to') { openDirections({ to: wp }); labelWaypoint('to', wp); }
   else if (a === 'measure') { startMeasure(); addMeasurePoint(ll); }
+  else if (a === 'streetview') StreetView.openAt(ll.lat, ll.lng);
   else if (a === 'measure-reset') stopMeasure();
 });
 document.addEventListener('click', (e) => { if (!ctx.contains(e.target)) hideCtx(); });
@@ -722,13 +742,13 @@ function renderMeasure() {
 }
 function updateMeasureBadge() {
   let d = 0; for (let i = 1; i < state.measure.pts.length; i++) d += haversine(state.measure.pts[i - 1], state.measure.pts[i]);
-  $('#measure-badge').innerHTML = `<span>📏 ${state.measure.pts.length < 2 ? 'Click the map to add points' : `Total distance: <b>${fmtDist(d)}</b>`}</span><button id="measure-done">Done</button>`;
+  $('#measure-badge').innerHTML = `<span>${mi('straighten')} ${state.measure.pts.length < 2 ? 'Click the map to add points' : `Total distance: <b>${fmtDist(d)}</b>`}</span><button id="measure-done">Done</button>`;
   $('#measure-done').onclick = stopMeasure;
 }
 
 /* ---------------- Directions ---------------- */
 const placeToWaypoint = (p) => ({ label: p.name + (p.short ? `, ${p.short}` : ''), lat: p.lat, lon: p.lon });
-const MY_LOCATION = { name: 'Your location', icon: '🎯', short: '', isMe: true };
+const MY_LOCATION = { name: 'Your location', icon: mi('my_location'), iconClass: 'me', short: '', isMe: true };
 
 function openDirections({ from, to } = {}) {
   const d = state.dir;
@@ -760,7 +780,7 @@ function openDirections({ from, to } = {}) {
       if (p.isMe) { locate(true).then((me) => { if (!me) return; d[which] = { label: 'Your location', lat: me.lat, lon: me.lon, isMe: true }; input.value = 'Your location'; route(); }); return; }
       d[which] = placeToWaypoint(p); input.value = d[which].label; route();
     }, { extra: (q) => (!q || 'your location'.startsWith(q.toLowerCase())
-      ? [MY_LOCATION, ...(q ? [] : [...state.saved.slice(0, 3).map((s) => ({ ...s, icon: '⭐' })), ...recent.list().slice(0, 4).map((r) => ({ ...r, icon: '🕘', iconClass: 'muted' }))])]
+      ? [MY_LOCATION, ...(q ? [] : [...state.saved.slice(0, 3).map((s) => ({ ...s, icon: mi('star', 'fill'), iconClass: 'saved' })), ...recent.list().slice(0, 4).map((r) => ({ ...r, icon: mi('history'), iconClass: 'muted' }))])]
       : []) });
     input.addEventListener('input', () => { if (!input.value.trim()) { d[which] = null; } });
   }
@@ -899,10 +919,14 @@ function stepText(s) {
 }
 function stepIcon(s) {
   const { type, modifier } = s.maneuver;
-  if (type === 'depart') return '🚩';
-  if (type === 'arrive') return '📍';
-  if (type.includes('roundabout') || type === 'rotary') return '⟳';
-  return { left: '←', right: '→', 'slight left': '↖', 'slight right': '↗', 'sharp left': '↙', 'sharp right': '↘', uturn: '↶', straight: '↑' }[modifier] || '↑';
+  if (type === 'depart') return mi('trip_origin');
+  if (type === 'arrive') return mi('location_on', 'fill arrive');
+  const left = (modifier || '').includes('left');
+  if (type.includes('roundabout') || type === 'rotary') return mi(left ? 'roundabout_left' : 'roundabout_right');
+  if (type === 'merge') return mi(left ? 'merge' : 'merge');
+  if (type === 'fork') return mi(left ? 'fork_left' : 'fork_right');
+  if (type === 'off ramp' || type === 'on ramp') return mi(left ? 'ramp_left' : 'ramp_right');
+  return mi({ left: 'turn_left', right: 'turn_right', 'slight left': 'turn_slight_left', 'slight right': 'turn_slight_right', 'sharp left': 'turn_sharp_left', 'sharp right': 'turn_sharp_right', uturn: 'u_turn_left', straight: 'straight' }[modifier] || 'straight');
 }
 
 $('#directions-btn').onclick = () => openDirections(state.place ? { to: placeToWaypoint(state.place) } : {});
@@ -931,23 +955,54 @@ $('#zoom-in').onclick = () => map.zoomIn();
 $('#zoom-out').onclick = () => map.zoomOut();
 
 /* ---------------- Layers ---------------- */
-$('#layer-btn').onclick = (e) => { e.stopPropagation(); $('#layer-menu').classList.toggle('hidden'); };
+// Like Google Maps: click the tile to flip between map and satellite; hover (or tap on touch screens) for all options.
+const canHover = matchMedia('(hover: hover)').matches;
+$('#layer-btn').onclick = (e) => {
+  e.stopPropagation();
+  if (!canHover) return $('#layer-menu').classList.toggle('hidden');
+  setStyle(state.styleKey === 'satellite' ? (localStorage.getItem('map.lastMapStyle') || 'liberty') : 'satellite');
+};
+let layerHoverT;
+$('#layers').addEventListener('mouseenter', () => { if (canHover) { clearTimeout(layerHoverT); $('#layer-menu').classList.remove('hidden'); } });
+$('#layers').addEventListener('mouseleave', () => { if (canHover) layerHoverT = setTimeout(() => $('#layer-menu').classList.add('hidden'), 250); });
 document.addEventListener('click', (e) => { if (!$('#layers').contains(e.target)) $('#layer-menu').classList.add('hidden'); });
 $$('.layer-opt').forEach((b) => b.addEventListener('click', () => setStyle(b.dataset.style)));
 function setStyle(key) {
   if (key === state.styleKey) return;
   state.styleKey = key; localStorage.setItem('map.style', key);
+  if (key !== 'satellite') localStorage.setItem('map.lastMapStyle', key);
   document.body.classList.add('style-switching');
   map.setStyle(CONFIG.styles[key]);
   map.once('idle', () => document.body.classList.remove('style-switching'));
   setTimeout(() => document.body.classList.remove('style-switching'), 2500);
   applyStyleUI(); $('#layer-menu').classList.add('hidden');
 }
+/* Layer thumbnails: real map tiles of the area you're looking at. */
+const PREVIEW_TILE = {
+  liberty: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+  bright: (z, x, y) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png`,
+  positron: (z, x, y) => `https://basemaps.cartocdn.com/light_all/${z}/${x}/${y}.png`,
+  dark: (z, x, y) => `https://basemaps.cartocdn.com/dark_all/${z}/${x}/${y}.png`,
+  satellite: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`,
+};
+function updateLayerPreviews() {
+  const c = map.getCenter(), z = Math.max(2, Math.min(16, Math.round(map.getZoom()) - 1));
+  const n = 2 ** z, x = Math.floor(((c.lng + 180) / 360) * n);
+  const lat = (c.lat * Math.PI) / 180, y = Math.floor(((1 - Math.log(Math.tan(lat) + 1 / Math.cos(lat)) / Math.PI) / 2) * n);
+  const url = (key) => `url("${PREVIEW_TILE[key](z, x, Math.max(0, Math.min(n - 1, y)))}")`;
+  const next = state.styleKey === 'satellite' ? 'liberty' : 'satellite';
+  $('#layer-thumb').style.backgroundImage = url(next);
+  $$('.layer-opt .thumb').forEach((t) => { t.style.backgroundImage = url(t.dataset.preview); });
+}
+map.on('moveend', debounce(updateLayerPreviews, 400));
+map.once('load', updateLayerPreviews);
+
 function applyStyleUI() {
   $$('.layer-opt').forEach((b) => b.classList.toggle('active', b.dataset.style === state.styleKey));
   // The thumbnail previews the layer you'd switch to, like Google Maps.
   const next = state.styleKey === 'satellite' ? 'liberty' : 'satellite';
-  $('#layer-thumb').className = `thumb t-${next}`;
+  $('#layer-thumb').className = `t-${next}`;
+  if (map.loaded()) updateLayerPreviews();
   document.body.classList.toggle('dark-ui', state.styleKey === 'dark');
 }
 

@@ -15,7 +15,7 @@ DYNAMIC = {
     'clear_night', 'partly_cloudy_night', 'thermostat', 'fullscreen_exit', 'road', 'pause', 'volume_off', 'volume_up',
     # My Maps pin icons
     'location_on', 'star', 'favorite', 'home', 'work', 'restaurant', 'local_cafe', 'hotel', 'park', 'flag', 'photo_camera',
-    'directions_car', 'luggage', 'bookmark', 'visibility', 'visibility_off',
+    'directions_car', 'luggage', 'bookmark', 'visibility', 'visibility_off', 'alt_route', 'location_off',
 }
 
 names = set(DYNAMIC)

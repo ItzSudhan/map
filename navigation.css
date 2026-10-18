@@ -1,0 +1,83 @@
+/* Turn-by-turn navigation (navigation.js) */
+
+/* Hide everything except the map, toasts and the navigation UI. */
+body.navigating > :not(#map):not(#nav):not(#toast) { display: none !important; }
+body.navigating .me-marker { display: none; }
+body.navigating .maplibregl-ctrl-bottom-right { right: 0; bottom: 96px; }
+
+#nav { --nav-green: #188038; --nav-green-dark: #0d652d; position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+#nav > * { pointer-events: auto; }
+
+/* Top maneuver banner */
+.nav-top { position: absolute; top: 12px; left: 12px; width: min(440px, calc(100% - 24px)); animation: navDrop .35s var(--spring); }
+.nav-banner {
+  display: flex; align-items: center; gap: 16px; padding: 16px 20px; min-height: 88px;
+  background: var(--nav-green); color: #fff; border-radius: 12px; box-shadow: var(--shadow-lg);
+  transition: background-color .3s ease;
+}
+.nav-banner.alt { background: #3c4043; }
+.nav-top:has(.nav-then:not(.hidden)) .nav-banner { border-radius: 12px 12px 0 12px; }
+.nav-icon .mi { font-size: 48px; color: #fff; }
+.nav-main { min-width: 0; }
+.nav-dist { font-size: 26px; font-weight: 500; line-height: 1.15; }
+.nav-text { font-size: 17px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.nav-then {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 75%; padding: 6px 14px 8px; font-size: 14px; font-weight: 500;
+  background: var(--nav-green-dark); color: #fff; border-radius: 0 0 12px 12px; box-shadow: var(--shadow);
+}
+.nav-then .mi { font-size: 22px; color: #fff; }
+.nav-then span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; opacity: .9; }
+
+/* Round buttons (mute, exit) */
+.nav-round { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--bg); color: var(--text); box-shadow: var(--shadow); transition: transform .18s var(--spring), background-color .15s; }
+.nav-round:hover { background: var(--hover); }
+.nav-round:active { transform: scale(.92); }
+.nav-mute { position: absolute; top: 12px; right: 12px; }
+.nav-mute.off { color: #d93025; }
+
+/* Re-centre pill */
+.nav-recenter {
+  position: absolute; left: 12px; bottom: 100px; display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 18px 0 12px;
+  background: var(--bg); color: var(--blue); font-size: 15px; font-weight: 500; border-radius: 22px; box-shadow: var(--shadow-lg);
+  animation: navPop .3s var(--spring);
+}
+.nav-recenter .mi { font-size: 22px; }
+
+/* Bottom bar: remaining time, distance, ETA */
+.nav-bottom {
+  position: absolute; left: 12px; bottom: 12px; width: min(440px, calc(100% - 24px)); display: flex; align-items: center; gap: 16px;
+  padding: 12px 20px 12px 12px; border-radius: 16px; box-shadow: var(--shadow-lg); animation: navRise .35s var(--spring);
+}
+.nav-exit { background: #d93025; color: #fff; box-shadow: none; }
+.nav-exit:hover { background: #b3261e; }
+.nav-stats { min-width: 0; }
+.nav-rem { font-size: 24px; font-weight: 500; color: var(--nav-green); line-height: 1.2; }
+.nav-sub { font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* "No location, simulate?" card */
+.nav-prompt { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 32px)); padding: 20px; color: var(--text); border-radius: 16px; box-shadow: var(--shadow-lg); animation: navPop .3s var(--spring); }
+.nav-prompt-title { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 500; }
+.nav-prompt-title .mi { color: #d93025; }
+.nav-prompt p { margin: 10px 0 16px; font-size: 14px; color: var(--muted); line-height: 1.45; }
+.nav-prompt-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* Navigation arrow marker */
+.nav-arrow { width: 48px; height: 48px; filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.nav-arrow svg { width: 48px; height: 48px; display: block; }
+
+body.dark-ui .nav-rem { color: #81c995; }
+body.dark-ui .nav-recenter { color: #8ab4f8; }
+
+@keyframes navDrop { from { opacity: 0; transform: translateY(-16px); } }
+@keyframes navRise { from { opacity: 0; transform: translateY(16px); } }
+@keyframes navPop { from { opacity: 0; scale: .9; } }
+
+@media (max-width: 640px) {
+  .nav-top { top: 8px; left: 8px; width: calc(100% - 16px); }
+  .nav-mute { top: auto; bottom: 100px; right: 12px; }
+  .nav-bottom { left: 0; bottom: 0; width: 100%; border-radius: 16px 16px 0 0; padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-top, .nav-bottom, .nav-recenter, .nav-prompt { animation: none; }
+}

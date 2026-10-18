@@ -972,7 +972,7 @@ function renderDirections() {
   $$('.route-card', body).forEach((c) => c.onclick = () => { if (d.active === +c.dataset.i) return; d.active = +c.dataset.i; renderRoutes(true); renderDirections(); });
   $('#steps-toggle').onclick = () => { d.showSteps = !d.showSteps; renderDirections(); };
   $('#dir-start')?.addEventListener('click', () => TurnByTurn.start(d.routes[d.active], d.mode));
-  $('#dir-sim')?.addEventListener('click', () => TurnByTurn.start(d.routes[d.active], d.mode, { simulate: true }));
+  $('#dir-sim')?.addEventListener('click', () => TurnByTurn.start(d.routes[d.active], d.mode, { simulate: 4 }));
   $('#dir-share').onclick = () => {
     const pts = [d.from, ...d.stops.filter(Boolean), d.to].map((p) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`).join(';');
     const url = `${location.origin}${location.pathname}?route=${encodeURIComponent(pts)}&mode=${d.mode}`;
@@ -996,7 +996,9 @@ function stepText(s) {
   switch (type) {
     case 'depart': return `Head ${COMPASS[Math.round(bearing_after / 45) % 8]}${road ? ` on ${road}` : ''}`;
     case 'arrive': return `Arrive at your destination${modifier && modifier !== 'straight' ? `, on the ${modifier.replace(/slight |sharp /, '')}` : ''}`;
-    case 'turn': case 'end of road': return modifier === 'uturn' ? `Make a U-turn${onto}` : `Turn ${mod}${onto}`;
+    case 'turn': case 'end of road':
+      if (modifier === 'uturn') return `Make a U-turn${onto}`;
+      return modifier === 'straight' ? `Continue straight${onto}` : `Turn ${mod}${onto}`;
     case 'continue': return modifier === 'uturn' ? `Make a U-turn${onto}` : `Continue ${mod === 'straight' ? 'straight' : mod}${onto}`;
     case 'new name': return `Continue${onto}`;
     case 'merge': return `Merge ${mod}${onto}`;

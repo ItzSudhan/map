@@ -4,6 +4,50 @@
  * - Place cards get a Street View preview when imagery exists nearby.
  * Uses globals from app.js (map, state, $, esc, mi, toast, getJSON, haversine, fmtDist, debounce, ICONS).
  */
+/* 360° panorama viewer (Pannellum, MIT licence), loaded only when first needed. */
+const Pano360 = (() => {
+  const BASE = 'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/';
+  let ready = null;
+  function load() {
+    ready ??= new Promise((resolve, reject) => {
+      const css = document.createElement('link'); css.rel = 'stylesheet'; css.href = BASE + 'pannellum.css';
+      const js = document.createElement('script'); js.src = BASE + 'pannellum.js'; js.onload = resolve; js.onerror = reject;
+      document.head.append(css, js);
+    });
+    return ready;
+  }
+  /** Mount an equirectangular panorama into `container` (an element). Returns the viewer (call .destroy() when done). */
+  async function mount(container, url, { yaw = 0, autoRotate = true } = {}) {
+    await load();
+    const v = pannellum.viewer(container, {
+      type: 'equirectangular', panorama: url, autoLoad: true, showControls: false, compass: false,
+      yaw, hfov: 100, autoRotate: autoRotate ? -2 : 0, autoRotateInactivityDelay: 4000, crossOrigin: 'anonymous', showFullscreenCtrl: false,
+    });
+    return v;
+  }
+  /** Full-screen 360° viewer for a single photo. */
+  let el = null, viewer = null;
+  async function open(url, { title = '360° view', credit = '', page = '' } = {}) {
+    if (!el) {
+      el = document.createElement('div'); el.id = 'pano'; el.className = 'hidden';
+      el.innerHTML = `<div id="pano-view"></div>
+        <div class="sv-top card"><button class="icon-btn pano-close" aria-label="Close 360° view">${mi('arrow_back')}</button>
+          <div class="sv-title"><div class="sv-addr"></div><div class="sv-date">${mi('360')} Drag to look around</div></div></div>
+        <div class="sv-bottom"><a class="pano-credit" target="_blank" rel="noopener"></a></div>`;
+      document.body.appendChild(el);
+      el.querySelector('.pano-close').onclick = close;
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !el.classList.contains('hidden')) { close(); e.stopPropagation(); } }, true);
+    }
+    el.querySelector('.sv-addr').textContent = title;
+    const cr = el.querySelector('.pano-credit'); cr.textContent = credit; cr.href = page || '#';
+    el.classList.remove('hidden');
+    viewer?.destroy();
+    try { viewer = await mount('pano-view', url); } catch { toast("Couldn't load the 360° viewer"); close(); }
+  }
+  function close() { viewer?.destroy(); viewer = null; el?.classList.add('hidden'); }
+  return { mount, open, close };
+})();
+
 const StreetView = (() => {
   const API = 'https://api.openstreetcam.org/2.0';
   const seqCache = new Map();   // sequenceId -> photos[]
@@ -14,6 +58,8 @@ const StreetView = (() => {
     id: r.id, seq: r.sequenceId, idx: +r.sequenceIndex, lat: +(r.matchLat || r.lat), lon: +(r.matchLng || r.lng),
     heading: r.heading != null ? +r.heading : null, date: r.shotDate || r.dateAdded,
     img: r.imageProcUrl || r.fileurlProc, thumb: r.imageThUrl || r.fileurlTh, large: r.imageLthUrl || r.fileurlLTh,
+    // 360° photos: spherical projection, or a 2:1 equirectangular frame
+    is360: /sphere|equirect/i.test(r.projection || '') || r.isWrapped === '1' || (+r.width > 0 && Math.abs(r.width / r.height - 2) < 0.02),
   });
 
   /** Nearest photo for each drive within `radius` metres (KartaView returns one per drive). */
@@ -123,7 +169,8 @@ const StreetView = (() => {
     viewerEl.id = 'sv-viewer';
     viewerEl.className = 'hidden';
     viewerEl.innerHTML = `
-      <div class="sv-stage"><img class="sv-img" alt="Street-level photo"><div class="sv-spin"><div class="spinner"></div></div></div>
+      <div class="sv-stage"><img class="sv-img" alt="Street-level photo"><div id="sv-pano" class="hidden"></div><div class="sv-spin"><div class="spinner"></div></div></div>
+      <span class="sv-360 hidden">${mi('360')} 360°</span>
       <div class="sv-top card"><button class="icon-btn sv-close" aria-label="Close Street View">${mi('arrow_back')}</button>
         <div class="sv-title"><div class="sv-addr">Street View</div><div class="sv-date"></div></div></div>
       <button class="sv-nav sv-prev" aria-label="Step back">${mi('arrow_back_ios_new')}</button>
@@ -166,8 +213,20 @@ const StreetView = (() => {
       viewerEl.querySelector('.sv-addr').textContent = addr || 'Street View';
     });
   }
+  let panoViewer = null;
   function show() {
     const p = current, img = viewerEl.querySelector('.sv-img');
+    const panoEl = viewerEl.querySelector('#sv-pano');
+    viewerEl.querySelector('.sv-360').classList.toggle('hidden', !p.is360);
+    panoViewer?.destroy(); panoViewer = null;
+    panoEl.classList.toggle('hidden', !p.is360);
+    img.classList.toggle('hidden', !!p.is360);
+    if (p.is360) {
+      // Look in the direction of travel
+      Pano360.mount('sv-pano', p.img || p.large, { yaw: 0, autoRotate: false })
+        .then((v) => { if (current?.id === p.id) { panoViewer = v; viewerEl.classList.remove('loading'); } else v.destroy(); })
+        .catch(() => toast("Couldn't load the 360° viewer"));
+    }
     viewerEl.classList.add('loading');
     img.classList.remove('loaded');
     const src = p.img || p.large;
@@ -180,7 +239,8 @@ const StreetView = (() => {
     }
     delete img.dataset.full;
     const pre = new Image();
-    pre.onload = () => { if (!same()) return; img.src = src; img.dataset.full = '1'; img.classList.add('loaded'); viewerEl.classList.remove('loading'); };
+    if (p.is360) { viewerEl.querySelector('.sv-date').textContent = ''; }
+    pre.onload = () => { if (!same() || p.is360) return; img.src = src; img.dataset.full = '1'; img.classList.add('loaded'); viewerEl.classList.remove('loading'); };
     pre.onerror = () => { if (same()) { viewerEl.classList.remove('loading'); if (!img.classList.contains('loaded')) toast("This photo couldn't be loaded"); } };
     pre.src = src;
     const d = p.date ? new Date(p.date.replace(' ', 'T')) : null;
@@ -208,6 +268,7 @@ const StreetView = (() => {
   function close() {
     if (!current) return;
     current = null;
+    panoViewer?.destroy(); panoViewer = null;
     viewerEl.classList.add('hidden');
     document.body.classList.remove('sv-open');
     meMarker?.remove();

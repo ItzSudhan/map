@@ -628,3 +628,55 @@ body.sv-open .maplibregl-ctrl-bottom-right, body.sv-open .maplibregl-ctrl-bottom
   body.sv-open #map:hover { width: 150px; height: 110px; }
   .sv-nav { width: 44px; height: 44px; }
 }
+
+/* 360° panoramas */
+#pano { position: fixed; inset: 0; z-index: 110; background: #000; animation: fadeIn .25s ease; }
+#pano-view, #sv-pano { position: absolute; inset: 0; }
+.sv-360 { position: absolute; top: 18px; right: 18px; display: inline-flex; align-items: center; gap: 4px; background: rgba(0,0,0,.6); color: #fff; padding: 6px 12px; border-radius: 16px; font-size: 13px; font-weight: 500; }
+.sv-360 .mi, .pano-badge .mi, .lb-360 .mi { font-size: 18px; }
+.pano-badge { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.6); color: #fff; border-radius: 12px; padding: 2px 6px; display: grid; place-items: center; }
+.lb-360 { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px; background: #fff; color: #202124; padding: 10px 18px; border-radius: 22px; font-weight: 500; box-shadow: var(--shadow-lg); transition: transform .2s var(--spring); }
+.lb-360:hover { transform: translateX(-50%) scale(1.05); }
+.pano-credit { color: #ccc; font-size: 11px; }
+.pnlm-load-box { background: rgba(0,0,0,.6) !important; border-radius: 12px !important; }
+
+/* Directions: stops, options, actions */
+.dir-fields { align-items: center; }
+.dir-row { display: flex; align-items: center; gap: 10px; position: relative; }
+.dir-row + .dir-row::before { content: ''; position: absolute; left: 9px; top: -10px; height: 12px; border-left: 2px dotted var(--muted); }
+.dir-marker { width: 20px; height: 20px; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 700; }
+.dir-marker.from { width: 12px; height: 12px; margin: 0 4px; border-radius: 50%; border: 2px solid var(--muted); }
+.dir-marker.stop { border-radius: 50%; background: var(--bg); border: 2px solid var(--text); color: var(--text); width: 18px; height: 18px; }
+.dir-marker.to .mi { font-size: 20px; color: #ea4335; }
+.dir-row .dir-input-wrap { flex: 1; }
+.dir-rm { width: 32px; height: 32px; }
+.dir-rm .mi { font-size: 18px; }
+.dir-extra { display: flex; gap: 4px; padding: 6px 0 0 26px; flex-wrap: wrap; }
+.dir-link { display: inline-flex; align-items: center; gap: 6px; color: var(--blue); font-size: 13px; font-weight: 500; padding: 6px 10px; border-radius: 16px; }
+.dir-link:hover { background: var(--hover); }
+.dir-link .mi { font-size: 18px; }
+.dir-opts { padding: 4px 0 0 26px; animation: fadeUp .2s var(--ease-out); }
+.dir-opts .lt .mi { font-size: 18px; }
+.stop-marker { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 3px solid #202124; color: #202124; font: 700 11px/16px Roboto, sans-serif; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: grab; animation: dotPop .4s var(--spring) both; }
+.dir-actions { display: flex; gap: 8px; padding: 12px 24px 4px; flex-wrap: wrap; }
+.dir-actions .btn { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; background: var(--bg); }
+.dir-actions .btn.primary { background: var(--blue); }
+.dir-actions .btn .mi { font-size: 18px; }
+.legs { margin: 8px 24px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.leg { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 13px; }
+.leg + .leg { border-top: 1px solid var(--line); }
+.leg-badge { width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--text); display: grid; place-items: center; font-size: 10px; font-weight: 700; flex: none; }
+.leg-badge .mi { font-size: 16px; color: #ea4335; }
+.leg:last-child .leg-badge { border: 0; }
+.leg-meta { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.dir-elev { margin: 8px 24px; }
+.dir-note .mi { font-size: 16px; vertical-align: -3px; }
+
+/* Mobile bottom sheet */
+.sheet-handle { display: none; }
+@media (max-width: 640px) {
+  .sheet-handle { display: grid; place-items: center; position: sticky; top: 0; z-index: 3; height: 22px; background: var(--bg); cursor: grab; touch-action: none; }
+  .sheet-handle span { width: 36px; height: 4px; border-radius: 2px; background: #dadce0; }
+  #panel { overscroll-behavior: contain; }
+  #panel.sheet-full { border-radius: 0; }
+}

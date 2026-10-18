@@ -717,7 +717,7 @@ document.addEventListener('click', (e) => { if (!ctx.contains(e.target)) hideCtx
 async function labelWaypoint(which, wp) {
   try {
     const data = await getJSON(`${CONFIG.photon}/reverse?lat=${wp.lat}&lon=${wp.lon}&limit=1`);
-    const f = data.features[0]; if (!f || state.dir[which] !== wp) return;
+    const f = data.features[0]; if (!f || getWp(which) !== wp) return;
     const p = photonToPlace(f); wp.label = [p.name, p.short].filter(Boolean).join(', ').slice(0, 80);
     const inp = $(`#dir-${which}`); if (inp && document.activeElement !== inp) inp.value = wp.label;
   } catch {}
@@ -750,67 +750,133 @@ function updateMeasureBadge() {
 const placeToWaypoint = (p) => ({ label: p.name + (p.short ? `, ${p.short}` : ''), lat: p.lat, lon: p.lon });
 const MY_LOCATION = { name: 'Your location', icon: mi('my_location'), iconClass: 'me', short: '', isMe: true };
 
+const MAX_STOPS = 5;
+const AVOID = JSON.parse(localStorage.getItem('map.avoid') || '{}'); // { tolls, highways, ferries }
+const wpInputs = () => ['from', ...(state.dir.stops || []).map((_, i) => `stop${i}`), 'to'];
+const getWp = (key) => (key === 'from' || key === 'to' ? state.dir[key] : state.dir.stops[+key.slice(4)]);
+function setWp(key, wp) { if (key === 'from' || key === 'to') state.dir[key] = wp; else state.dir.stops[+key.slice(4)] = wp; }
+
 function openDirections({ from, to } = {}) {
   const d = state.dir;
+  d.stops ||= [];
   if (from !== undefined) d.from = from;
   if (to !== undefined) d.to = to;
   if (!d.from && state.me && d.to) d.from = { label: 'Your location', lat: state.me.lat, lon: state.me.lon, isMe: true };
   clearResults(); clearPlaceMarker();
   document.body.classList.add('directions-mode');
-  openPanel(`
+  renderDirectionsForm();
+  const first = wpInputs().find((k) => !getWp(k));
+  if (first) $(`#dir-${first}`)?.focus();
+  route();
+}
+
+/** The top of the directions panel: travel modes, start / stops / destination, route options. */
+function renderDirectionsForm() {
+  const d = state.dir, keys = wpInputs();
+  const field = (key, i) => {
+    const isTo = key === 'to', isFrom = key === 'from';
+    const ph = isFrom ? 'Choose starting point, or click on the map' : isTo ? 'Choose destination' : `Add stop ${i}`;
+    return `<div class="dir-row" data-key="${key}">
+      <span class="dir-marker ${isFrom ? 'from' : isTo ? 'to' : 'stop'}">${isFrom ? '' : isTo ? mi('location_on', 'fill') : String.fromCharCode(64 + i)}</span>
+      <div class="dir-input-wrap"><input id="dir-${key}" placeholder="${ph}" value="${esc(getWp(key)?.label || '')}" autocomplete="off"><ul class="suggestions hidden" id="dir-${key}-s"></ul></div>
+      ${!isFrom && !isTo ? `<button class="icon-btn dir-rm" data-rm="${key}" title="Remove stop">${mi('close')}</button>` : ''}
+    </div>`;
+  };
+  const panel = $('#panel-content');
+  const html = `
     <div class="dir-top">
       <div class="dir-modes">
         ${['car', 'bike', 'foot'].map((m) => `<button class="mode ${d.mode === m ? 'active' : ''}" data-mode="${m}" title="${{ car: 'Driving', bike: 'Cycling', foot: 'Walking' }[m]}">${ICONS[m]}</button>`).join('')}
         <button class="icon-btn close" id="dir-close" title="Close directions">${ICONS.close}</button>
       </div>
       <div class="dir-fields">
-        <div class="dir-dots"><span class="dot"></span><span class="vdots"></span><span class="pin">${ICONS.smallPin}</span></div>
-        <div class="dir-inputs">
-          <div class="dir-input-wrap"><input id="dir-from" placeholder="Choose starting point, or click on the map" value="${esc(d.from?.label || '')}" autocomplete="off"><ul class="suggestions hidden" id="dir-from-s"></ul></div>
-          <div class="dir-input-wrap"><input id="dir-to" placeholder="Choose destination" value="${esc(d.to?.label || '')}" autocomplete="off"><ul class="suggestions hidden" id="dir-to-s"></ul></div>
-        </div>
-        <button class="swap" id="dir-swap" title="Reverse starting point and destination">${ICONS.swap}</button>
+        <div class="dir-inputs">${keys.map(field).join('')}</div>
+        <button class="swap" id="dir-swap" title="Reverse the route">${ICONS.swap}</button>
+      </div>
+      <div class="dir-extra">
+        ${d.stops.length < MAX_STOPS ? `<button class="dir-link" id="dir-add">${mi('add_circle')} Add stop</button>` : ''}
+        ${d.mode === 'car' ? `<button class="dir-link" id="dir-opts-btn">${mi('tune')} Options${Object.values(AVOID).some(Boolean) ? ' •' : ''}</button>` : ''}
+      </div>
+      <div id="dir-opts" class="dir-opts hidden">
+        ${[['tolls', 'Avoid tolls', 'toll'], ['highways', 'Avoid highways', 'add_road'], ['ferries', 'Avoid ferries', 'directions_boat']].map(([k, l, ic]) =>
+          `<label class="lt"><input type="checkbox" data-avoid="${k}" ${AVOID[k] ? 'checked' : ''}><span class="sw"></span>${mi(ic)}${l}</label>`).join('')}
       </div>
     </div>
-    <div id="dir-body"></div>
-  `);
-  for (const which of ['from', 'to']) {
-    const input = $(`#dir-${which}`);
-    attachAutocomplete(input, $(`#dir-${which}-s`), (p) => {
-      if (p.isMe) { locate(true).then((me) => { if (!me) return; d[which] = { label: 'Your location', lat: me.lat, lon: me.lon, isMe: true }; input.value = 'Your location'; route(); }); return; }
-      d[which] = placeToWaypoint(p); input.value = d[which].label; route();
+    <div id="dir-body"></div>`;
+  if (!document.body.classList.contains('directions-mode') || !$('#dir-body')) openPanel(html);
+  else { const body = $('#dir-body').innerHTML; panel.innerHTML = html; $('#dir-body').innerHTML = body; }
+
+  for (const key of keys) {
+    const input = $(`#dir-${key}`);
+    attachAutocomplete(input, $(`#dir-${key}-s`), (p) => {
+      if (p.isMe) { locate(true).then((me) => { if (!me) return; setWp(key, { label: 'Your location', lat: me.lat, lon: me.lon, isMe: true }); input.value = 'Your location'; route(); }); return; }
+      setWp(key, placeToWaypoint(p)); input.value = getWp(key).label; route();
+      const next = wpInputs().find((k) => !getWp(k)); if (next) $(`#dir-${next}`)?.focus();
     }, { extra: (q) => (!q || 'your location'.startsWith(q.toLowerCase())
       ? [MY_LOCATION, ...(q ? [] : [...state.saved.slice(0, 3).map((s) => ({ ...s, icon: mi('star', 'fill'), iconClass: 'saved' })), ...recent.list().slice(0, 4).map((r) => ({ ...r, icon: mi('history'), iconClass: 'muted' }))])]
       : []) });
-    input.addEventListener('input', () => { if (!input.value.trim()) { d[which] = null; } });
+    input.addEventListener('input', () => { if (!input.value.trim()) setWp(key, null); });
   }
-  $$('.dir-modes .mode').forEach((b) => b.addEventListener('click', () => { d.mode = b.dataset.mode; $$('.dir-modes .mode').forEach((x) => x.classList.toggle('active', x === b)); route(); }));
-  $('#dir-close').onclick = () => { closeDirections(); };
-  $('#dir-swap').onclick = () => { [d.from, d.to] = [d.to, d.from]; $('#dir-from').value = d.from?.label || ''; $('#dir-to').value = d.to?.label || ''; route(); };
-  if (!d.from) $('#dir-from').focus(); else if (!d.to) $('#dir-to').focus();
-  route();
+  $$('.dir-modes .mode').forEach((b) => b.addEventListener('click', () => { d.mode = b.dataset.mode; renderDirectionsForm(); route(); }));
+  $('#dir-close').onclick = () => closeDirections();
+  $('#dir-swap').onclick = () => { [d.from, d.to] = [d.to, d.from]; d.stops.reverse(); renderDirectionsForm(); route(); };
+  $('#dir-add')?.addEventListener('click', () => {
+    // New stop goes before the destination
+    d.stops.push(null); renderDirectionsForm(); $(`#dir-stop${d.stops.length - 1}`)?.focus();
+  });
+  $$('[data-rm]').forEach((b) => b.addEventListener('click', () => { d.stops.splice(+b.dataset.rm.slice(4), 1); renderDirectionsForm(); route(); }));
+  $('#dir-opts-btn')?.addEventListener('click', () => $('#dir-opts').classList.toggle('hidden'));
+  $$('[data-avoid]').forEach((c) => c.addEventListener('change', () => {
+    AVOID[c.dataset.avoid] = c.checked; localStorage.setItem('map.avoid', JSON.stringify(AVOID));
+    $('#dir-opts-btn').innerHTML = `${mi('tune')} Options${Object.values(AVOID).some(Boolean) ? ' •' : ''}`;
+    route();
+  }));
 }
 function closeDirections() {
-  state.dir = { from: null, to: null, mode: state.dir.mode, routes: [], active: 0, showSteps: false };
+  if (hasNav()) TurnByTurn.stop();
+  state.dir = { from: null, to: null, stops: [], mode: state.dir.mode, routes: [], active: 0, showSteps: false };
   closePanel();
 }
+
+/* Routing: OSRM (fast) by default; Valhalla (also FOSSGIS, OSRM-compatible output) when avoiding tolls/highways/ferries. */
+const VALHALLA = 'https://valhalla1.openstreetmap.de';
+async function fetchRoutes(points, mode) {
+  const avoiding = mode === 'car' && Object.values(AVOID).some(Boolean);
+  if (!avoiding) {
+    const coords = points.map((p) => `${p.lon},${p.lat}`).join(';');
+    const data = await getJSON(`${CONFIG.osrm[mode]}/route/v1/driving/${coords}?overview=full&geometries=geojson&steps=true&alternatives=${points.length === 2}`);
+    if (data.code !== 'Ok' || !data.routes?.length) throw new Error(data.code);
+    return data.routes;
+  }
+  const req = {
+    locations: points.map((p) => ({ lat: p.lat, lon: p.lon })), costing: 'auto', format: 'osrm', shape_format: 'geojson',
+    alternates: points.length === 2 ? 2 : 0,
+    costing_options: { auto: { use_tolls: AVOID.tolls ? 0 : 0.5, use_highways: AVOID.highways ? 0 : 1, use_ferry: AVOID.ferries ? 0 : 0.5 } },
+  };
+  const data = await getJSON(`${VALHALLA}/route?json=${encodeURIComponent(JSON.stringify(req))}`);
+  if (data.code !== 'Ok' || !data.routes?.length) throw new Error(data.code || 'NoRoute');
+  return data.routes;
+}
+
+// Turn-by-turn navigation lives in navigation.js (named TurnByTurn: browsers already have a built-in `Navigation`).
+const hasNav = () => typeof TurnByTurn !== 'undefined';
 
 let routeSeq = 0;
 async function route() {
   const d = state.dir, body = $('#dir-body');
+  d.stops ||= [];
   renderDirMarkers();
+  const stops = d.stops.filter(Boolean);
   if (!d.from || !d.to) { d.routes = []; renderRoutes(); if (body) body.innerHTML = `<div class="dir-note">Pick a start and destination. Tip: right-click anywhere on the map for “Directions from/to here”.</div>`; return; }
   const my = ++routeSeq;
   body.innerHTML = skeleton('Finding the best routes…', 3);
-  const url = `${CONFIG.osrm[d.mode]}/route/v1/driving/${d.from.lon},${d.from.lat};${d.to.lon},${d.to.lat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
   try {
-    const data = await getJSON(url);
+    const routes = await fetchRoutes([d.from, ...stops, d.to], d.mode);
     if (my !== routeSeq) return;
-    if (data.code !== 'Ok' || !data.routes.length) throw new Error(data.code);
-    d.routes = data.routes; d.active = 0; d.showSteps = false;
+    d.routes = routes; d.active = 0; d.showSteps = false;
     renderRoutes(true); renderDirections(); reveal(body);
     const bounds = new maplibregl.LngLatBounds();
-    data.routes.forEach((r) => r.geometry.coordinates.forEach((c) => bounds.extend(c)));
+    routes.forEach((r) => r.geometry.coordinates.forEach((c) => bounds.extend(c)));
     map.fitBounds(bounds, { padding: fitPadding(), duration: 900 });
   } catch (e) {
     if (my !== routeSeq) return;
@@ -821,23 +887,26 @@ async function route() {
 
 function renderDirMarkers() {
   state.dirMarkers.forEach((m) => m.remove()); state.dirMarkers = [];
-  const { from, to } = state.dir;
-  if (from && !from.isMe) {
-    const el = document.createElement('div'); el.className = 'start-marker';
-    const m = new maplibregl.Marker({ element: el, draggable: true }).setLngLat([from.lon, from.lat]).addTo(map);
-    m.on('dragend', () => dragWaypoint('from', m)); state.dirMarkers.push(m);
-  }
-  if (to) {
-    const el = document.createElement('div'); el.className = 'pin-marker'; el.innerHTML = ICONS.pin + '<span class="pin-shadow"></span>';
-    const m = new maplibregl.Marker({ element: el, anchor: 'bottom', draggable: true }).setLngLat([to.lon, to.lat]).addTo(map);
-    m.on('dragend', () => dragWaypoint('to', m)); state.dirMarkers.push(m);
-  }
+  const { from, to, stops = [] } = state.dir;
+  const add = (key, el, opts) => {
+    const wp = getWp(key);
+    const m = new maplibregl.Marker({ element: el, draggable: true, ...opts }).setLngLat([wp.lon, wp.lat]).addTo(map);
+    m.on('dragend', () => dragWaypoint(key, m)); state.dirMarkers.push(m);
+  };
+  if (from && !from.isMe) { const el = document.createElement('div'); el.className = 'start-marker'; add('from', el); }
+  let letter = 0;
+  stops.forEach((s, i) => {
+    if (!s) return;
+    const el = document.createElement('div'); el.className = 'stop-marker'; el.textContent = String.fromCharCode(65 + letter++);
+    add(`stop${i}`, el);
+  });
+  if (to) { const el = document.createElement('div'); el.className = 'pin-marker'; el.innerHTML = ICONS.pin + '<span class="pin-shadow"></span>'; add('to', el, { anchor: 'bottom' }); }
 }
-function dragWaypoint(which, marker) {
+function dragWaypoint(key, marker) {
   const ll = marker.getLngLat();
   const wp = { label: fmtCoord(ll.lat, ll.lng), lat: ll.lat, lon: ll.lng };
-  state.dir[which] = wp; const inp = $(`#dir-${which}`); if (inp) inp.value = wp.label;
-  labelWaypoint(which, wp); route();
+  setWp(key, wp); const inp = $(`#dir-${key}`); if (inp) inp.value = wp.label;
+  labelWaypoint(key, wp); route();
 }
 
 /** Draw routes. With animate=true the active route "draws itself" from start to end. */
@@ -878,18 +947,36 @@ function renderDirections() {
       ${d.routes.map((rt, i) => `
         <div class="route-card ${i === d.active ? 'active' : ''}" data-i="${i}">
           <div class="rc-icon">${ICONS[d.mode]}</div>
-          <div class="rc-main"><div class="rc-via">via ${esc(rt.legs[0].summary || 'unnamed roads')}</div>
+          <div class="rc-main"><div class="rc-via">via ${esc(rt.legs.map((l) => l.summary).filter(Boolean).join(', ').split(', ').slice(0, 3).join(', ') || 'unnamed roads')}</div>
             <div class="rc-sub">${i === 0 ? 'Fastest route' : `${fmtDur(rt.duration - d.routes[0].duration)} slower`}</div></div>
           <div class="rc-time"><div class="rc-dur">${fmtDur(rt.duration)}</div><div class="rc-dist">${fmtDist(rt.distance)}</div>
             <div class="rc-arrive">Arrive ${new Date(Date.now() + rt.duration * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>
         </div>`).join('')}
     </div>
+    <div class="dir-actions">
+      ${hasNav() ? `<button class="btn primary" id="dir-start">${mi('navigation', 'fill')} Start</button>` : ''}
+      ${hasNav() ? `<button class="btn" id="dir-sim" title="Preview the drive">${mi('play_arrow')} Preview</button>` : ''}
+      <button class="btn" id="dir-share">${mi('share')} Share</button>
+    </div>
+    ${r.legs.length > 1 ? `<div class="legs">${r.legs.map((l, i) => `<div class="leg"><span class="leg-badge">${i === r.legs.length - 1 ? mi('location_on', 'fill') : String.fromCharCode(65 + i)}</span>${esc(([...d.stops.filter(Boolean), d.to][i]?.label || '').split(',')[0])}<span class="leg-meta">${fmtDur(l.duration)} · ${fmtDist(l.distance)}</span></div>`).join('')}</div>` : ''}
+    ${d.mode !== 'car' && typeof Tools !== 'undefined' ? '<div id="dir-elev" class="dir-elev"></div>' : ''}
+    ${d.mode === 'car' && Object.values(AVOID).some(Boolean) ? `<div class="dir-note">${mi('tune')} Avoiding ${Object.entries(AVOID).filter(([, v]) => v).map(([k]) => k).join(', ')}</div>` : ''}
     <button class="steps-toggle" id="steps-toggle">${d.showSteps ? 'Hide' : 'Show'} step-by-step directions</button>
     ${d.showSteps ? `<ol class="steps">${steps.map((s, i) => `
       <li data-i="${i}" style="--i:${i}"><span class="st-icon">${stepIcon(s)}</span><span class="st-text">${esc(stepText(s))}${s.distance ? `<div class="st-dist">${fmtDist(s.distance)}</div>` : ''}</span></li>`).join('')}</ol>` : ''}
     <div class="dir-note">Times are estimates from OpenStreetMap road data and don't include live traffic.</div>`;
   $$('.route-card', body).forEach((c) => c.onclick = () => { if (d.active === +c.dataset.i) return; d.active = +c.dataset.i; renderRoutes(true); renderDirections(); });
   $('#steps-toggle').onclick = () => { d.showSteps = !d.showSteps; renderDirections(); };
+  $('#dir-start')?.addEventListener('click', () => TurnByTurn.start(d.routes[d.active], d.mode));
+  $('#dir-sim')?.addEventListener('click', () => TurnByTurn.start(d.routes[d.active], d.mode, { simulate: true }));
+  $('#dir-share').onclick = () => {
+    const pts = [d.from, ...d.stops.filter(Boolean), d.to].map((p) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`).join(';');
+    const url = `${location.origin}${location.pathname}?route=${encodeURIComponent(pts)}&mode=${d.mode}`;
+    const title = `Directions to ${d.to.label.split(',')[0]}`;
+    if (typeof Tools !== 'undefined' && Tools.shareSheet) Tools.shareSheet({ title, url }); else copy(url, 'Route link copied');
+  };
+  const elev = $('#dir-elev');
+  if (elev) Tools.elevationProfile(r.geometry.coordinates, elev);
   $$('.steps li', body).forEach((li) => li.onclick = () => {
     const s = steps[+li.dataset.i]; map.flyTo({ center: s.maneuver.location, zoom: 17, padding: fitPadding() });
   });
@@ -1045,6 +1132,16 @@ document.addEventListener('keydown', (e) => {
       getJSON(`${CONFIG.photon}/reverse?lat=${lat}&lon=${lon}&limit=1`).then((d) => { const f = d.features[0]; if (f && state.place === p) { const r = photonToPlace(f); p.address = r.address; p.short = r.short; p.category = r.category; showPlace(p); } }).catch(() => {});
     }
   } else if (q) { searchInput.value = q; syncClear(); map.once('load', () => runSearch(q)); }
+  const rt = params.get('route');
+  if (rt) {
+    const pts = rt.split(';').map((s) => s.split(',').map(Number)).filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b))
+      .map(([lat, lon]) => ({ label: fmtCoord(lat, lon), lat, lon }));
+    if (pts.length >= 2) {
+      state.dir.mode = ['car', 'bike', 'foot'].includes(params.get('mode')) ? params.get('mode') : 'car';
+      state.dir.stops = pts.slice(1, -1);
+      map.once('load', () => { openDirections({ from: pts[0], to: pts.at(-1) }); ['from', ...state.dir.stops.map((_, i) => `stop${i}`), 'to'].forEach((k) => labelWaypoint(k, getWp(k))); });
+    }
+  }
 })();
 
 /* ---------------- Rotating search hints ---------------- */

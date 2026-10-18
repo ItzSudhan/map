@@ -84,7 +84,11 @@ const PlaceExtras = (() => {
         if (!ii || !/image\/(jpeg|png|webp)/.test(ii.mime) || ii.width < 500) continue;
         if (/\b(map|locator|logo|plan|diagram|flag|coat of arms|signature)\b/i.test(pg.title)) continue;
         const m = ii.extmetadata || {};
+        // 360° panoramas: equirectangular 2:1 frames that Commons also labels as panoramas/360°
+        const pano = Math.abs(ii.width / ii.height - 2) < 0.01 && ii.width >= 3000
+          && /360|spheric|equirect|photo ?sphere|panoram/i.test(`${pg.title} ${m.Categories?.value || ''}`);
         add({
+          pano, panoUrl: pano ? (ii.thumburl || ii.url).replace(/\/\d+px-/, `/${Math.min(ii.width, 6000)}px-`) : null,
           full: ii.thumburl || ii.url, thumb: (ii.thumburl || ii.url).replace(/\/\d+px-/, '/500px-'),
           title: pg.title, page: ii.descriptionurl,
           credit: [stripHtml(m.Artist?.value), m.LicenseShortName?.value].filter(Boolean).join(' · ') || 'Wikimedia Commons',
@@ -195,7 +199,8 @@ const PlaceExtras = (() => {
 
   function heroHTML(photos) {
     const n = photos.length;
-    const img = (ph, i, cls) => `<button class="ph ${cls}" data-i="${i}" aria-label="Open photo ${i + 1}"><img src="${esc(ph.thumb)}" alt="" loading="lazy" onload="this.classList.add('loaded')"></button>`;
+    const badge = (ph) => (ph.pano ? `<span class="pano-badge">${mi('360')}</span>` : '');
+    const img = (ph, i, cls) => `<button class="ph ${cls}" data-i="${i}" aria-label="Open photo ${i + 1}"><img src="${esc(ph.thumb)}" alt="" loading="lazy" onload="this.classList.add('loaded')">${badge(ph)}</button>`;
     return `<div class="hero-grid n${Math.min(n, 3)}">
       ${img(photos[0], 0, 'main')}${n > 1 ? img(photos[1], 1, 'side') : ''}${n > 2 ? img(photos[2], 2, 'side') : ''}
       <button class="ph-count" data-i="0">${mi('photo_library')} ${n} photo${n === 1 ? '' : 's'}</button></div>`;
@@ -209,7 +214,7 @@ const PlaceExtras = (() => {
     const grid = $id('pe-photos-grid');
     if (grid && photos.length > 3) {
       grid.innerHTML = `<div class="pe-section"><div class="pe-title">Photos</div><div class="strip">${photos.map((ph, i) =>
-        `<button class="strip-ph" data-i="${i}"><img src="${esc(ph.thumb)}" alt="" loading="lazy" onload="this.classList.add('loaded')"></button>`).join('')}</div></div>`;
+        `<button class="strip-ph" data-i="${i}"><img src="${esc(ph.thumb)}" alt="" loading="lazy" onload="this.classList.add('loaded')">${ph.pano ? `<span class="pano-badge">${mi('360')}</span>` : ''}</button>`).join('')}</div></div>`;
       grid.onclick = (e) => { const b = e.target.closest('[data-i]'); if (b) Lightbox.open(photos, +b.dataset.i); };
     }
   }
@@ -330,6 +335,7 @@ const Lightbox = (() => {
       <button class="lb-close" aria-label="Close">${mi('close')}</button>
       <button class="lb-nav prev" aria-label="Previous">${mi('chevron_left')}</button>
       <figure><img alt=""><figcaption><span class="lb-cap"></span><a class="lb-credit" target="_blank" rel="noopener"></a><span class="lb-count"></span></figcaption></figure>
+      <button class="lb-360 hidden">${mi('360')} View in 360°</button>
       <button class="lb-nav next" aria-label="Next">${mi('chevron_right')}</button>`;
     document.body.appendChild(el);
     el.querySelector('.lb-close').onclick = close;
@@ -351,6 +357,9 @@ const Lightbox = (() => {
     el.querySelector('.lb-cap').textContent = ph.caption || ph.title?.replace(/^File:/, '').replace(/\.\w+$/, '').replace(/_/g, ' ') || '';
     const cr = el.querySelector('.lb-credit'); cr.textContent = ph.credit || ''; cr.href = ph.page || '#';
     el.querySelector('.lb-count').textContent = photos.length > 1 ? `${i + 1} / ${photos.length}` : '';
+    const b360 = el.querySelector('.lb-360');
+    b360.classList.toggle('hidden', !ph.pano);
+    b360.onclick = () => Pano360.open(ph.panoUrl || ph.full, { title: el.querySelector('.lb-cap').textContent || '360° view', credit: ph.credit, page: ph.page });
     el.querySelectorAll('.lb-nav').forEach((b) => b.classList.toggle('hidden', photos.length < 2));
     // Preload neighbours
     [1, -1].forEach((d) => { const n = photos[(i + d + photos.length) % photos.length]; if (n) new Image().src = n.full; });

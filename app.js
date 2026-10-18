@@ -157,18 +157,31 @@ async function getJSON(url, opts) {
   return res.json();
 }
 
+/* Human-readable labels for OSM tag values */
+const CAT_LABEL = {
+  yes: '', house: 'Address', residential: 'Residential area', administrative: 'Region', place_of_worship: 'Place of worship',
+  fast_food: 'Fast food', bus_stop: 'Bus stop', bus_station: 'Bus station', aerodrome: 'Airport', station: 'Station',
+  guest_house: 'Guest house', fuel: 'Petrol pump', marketplace: 'Market', mall: 'Shopping mall', attraction: 'Attraction',
+  neighbourhood: 'Neighbourhood', suburb: 'Area', hamlet: 'Hamlet', locality: 'Locality', primary: 'Road', secondary: 'Road',
+  tertiary: 'Road', trunk: 'Highway', motorway: 'Highway', unclassified: 'Road', service: 'Road', living_street: 'Street',
+};
+const catLabel = (v) => { if (!v) return ''; if (v in CAT_LABEL) return CAT_LABEL[v]; const t = v.replace(/_/g, ' '); return t[0].toUpperCase() + t.slice(1); };
+
 /* Photon feature -> place */
 function photonToPlace(f) {
   const p = f.properties, [lon, lat] = f.geometry.coordinates;
   const line1 = [p.housenumber, p.street].filter(Boolean).join(' ');
-  const parts = [line1, p.district, p.city || p.town || p.village, p.state, p.postcode, p.country].filter(Boolean);
+  const locality = p.locality || p.district;
+  const city = p.city || p.town || p.village || p.county;
+  const parts = [line1, locality, city, p.state, p.postcode, p.country].filter(Boolean);
   const unique = parts.filter((x, i) => parts.indexOf(x) === i && x !== p.name);
+  const shortParts = [line1 || locality, city, city ? null : p.state, p.country !== 'India' && !city ? p.country : null].filter(Boolean);
   return {
-    name: p.name || line1 || p.city || p.state || p.country || 'Dropped pin',
+    name: p.name || line1 || city || p.state || p.country || 'Dropped pin',
     type: p.osm_key, value: p.osm_value,
-    category: (p.osm_value || p.type || '').replace(/_/g, ' '),
+    category: catLabel(p.osm_value === 'yes' ? p.osm_key : p.osm_value),
     address: unique.join(', '),
-    short: unique.slice(0, 3).join(', '),
+    short: [...new Set(shortParts)].filter((x) => x !== p.name).slice(0, 3).join(', ') || [p.state, p.country].filter(Boolean).join(', '),
     lat, lon, extent: p.extent, osm: p.osm_type && p.osm_id ? { type: p.osm_type, id: p.osm_id } : null, tags: {},
   };
 }
@@ -190,74 +203,187 @@ const OSM_TYPE = { N: 'node', W: 'way', R: 'relation' };
 const searchInput = $('#search-input');
 const suggestionsEl = $('#suggestions');
 
-function photonURL(q, limit = 7) {
+function photonURL(q, limit = 8) {
   const c = map.getCenter();
   const lang = ['en', 'de', 'fr', 'it'].includes(navigator.language.slice(0, 2)) ? navigator.language.slice(0, 2) : 'en';
-  return `${CONFIG.photon}/api/?q=${encodeURIComponent(q)}&limit=${limit}&lang=${lang}&lat=${c.lat}&lon=${c.lng}&zoom=${Math.round(map.getZoom())}&location_bias_scale=0.4`;
+  // Stronger local bias when zoomed in, so "Starbucks" finds the one near you rather than one abroad.
+  const z = Math.round(map.getZoom());
+  return `${CONFIG.photon}/api/?q=${encodeURIComponent(q)}&limit=${limit}&lang=${lang}&lat=${c.lat}&lon=${c.lng}&zoom=${z}&location_bias_scale=${z >= 10 ? 0.6 : 0.3}`;
 }
 
-/** Wire an <input> to a Photon autocomplete list. onPick(place) is called with the chosen place. */
-function attachAutocomplete(input, list, onPick, { extraTop = () => [] } = {}) {
-  let items = [], active = -1, seq = 0;
-  const render = () => {
-    if (!items.length) { list.classList.add('hidden'); input.closest('#search-card')?.classList.remove('open'); return; }
-    list.innerHTML = items.map((it, i) => `
-      <li data-i="${i}" class="${i === active ? 'active' : ''}">
-        <span class="s-icon">${it.icon || emojiFor(it)}</span>
-        <span class="s-text"><div class="s-name">${esc(it.name)}</div>${it.short ? `<div class="s-sub">${esc(it.short)}</div>` : ''}</span>
-      </li>`).join('');
-    list.classList.remove('hidden');
-    input.closest('#search-card')?.classList.add('open');
+/* Remove near-identical hits (same name within ~300 m), which Photon returns for big places. */
+function dedupe(places) {
+  const out = [];
+  for (const p of places) {
+    if (!out.some((o) => o.name.toLowerCase() === p.name.toLowerCase() && haversine([o.lon, o.lat], [p.lon, p.lat]) < 300)) out.push(p);
+  }
+  return out;
+}
+
+/* Recent searches (stored in the browser) */
+const recent = {
+  list: () => JSON.parse(localStorage.getItem('map.recent') || '[]'),
+  add(p) {
+    const item = { name: p.name, short: p.short, category: p.category, value: p.value, type: p.type, lat: p.lat, lon: p.lon, address: p.address, osm: p.osm, extent: p.extent };
+    const l = recent.list().filter((r) => !(r.name === item.name && Math.abs(r.lat - item.lat) < 1e-5));
+    localStorage.setItem('map.recent', JSON.stringify([item, ...l].slice(0, 8)));
+  },
+  clear: () => localStorage.removeItem('map.recent'),
+};
+
+/* Typed category words -> nearby search. Keys match CHIP_FILTERS. */
+const CATEGORY_WORDS = {
+  restaurant: ['restaurant', 'restaurants', 'food', 'dinner', 'lunch', 'eat', 'dhaba'], cafe: ['cafe', 'cafes', 'coffee', 'tea', 'chai'],
+  hotel: ['hotel', 'hotels', 'stay', 'lodging', 'hostel'], fuel: ['petrol', 'gas', 'fuel', 'petrol pump', 'gas station', 'diesel', 'cng'],
+  supermarket: ['grocery', 'groceries', 'supermarket', 'kirana', 'store'], pharmacy: ['pharmacy', 'medical', 'medical store', 'chemist', 'medicine'],
+  park: ['park', 'parks', 'garden'], atm: ['atm', 'atms', 'cash'], hospital: ['hospital', 'hospitals', 'clinic', 'doctor'],
+};
+const CAT_TITLE = { restaurant: '🍴 Restaurants', cafe: '☕ Coffee', hotel: '🛏️ Hotels', fuel: '⛽ Petrol pumps', supermarket: '🛒 Groceries', pharmacy: '💊 Pharmacies', park: '🌳 Parks', atm: '🏧 ATMs', hospital: '🏥 Hospitals' };
+function matchCategory(q) {
+  const t = q.toLowerCase().replace(/\b(near me|nearby|near by|around me|close by)\b/g, '').trim();
+  if (!t) return null;
+  for (const [cat, words] of Object.entries(CATEGORY_WORDS)) if (words.some((w) => w === t || (t.length >= 3 && w.startsWith(t)))) return cat;
+  return null;
+}
+/* "28.6129, 77.2295" or "28.6129 77.2295" -> {lat, lon} */
+function parseCoords(q) {
+  const m = q.trim().match(/^(-?\d{1,2}(?:\.\d+)?)[\s,;]+(-?\d{1,3}(?:\.\d+)?)$/);
+  if (!m) return null;
+  const lat = +m[1], lon = +m[2];
+  return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? { lat, lon } : null;
+}
+
+/* Bold the part of the name that matches what was typed. */
+function highlight(name, q) {
+  if (!q) return esc(name);
+  const i = name.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return esc(name);
+  return `${esc(name.slice(0, i))}<b>${esc(name.slice(i, i + q.length))}</b>${esc(name.slice(i + q.length))}`;
+}
+function distanceLabel(p) {
+  if (p.lat == null) return '';
+  const ref = state.me ? [state.me.lon, state.me.lat] : map.getZoom() >= 9 ? [map.getCenter().lng, map.getCenter().lat] : null;
+  return ref ? fmtDist(haversine(ref, [p.lon, p.lat])) : '';
+}
+
+/**
+ * Wire an <input> to the suggestion list.
+ * onPick(item) gets a place, or a special item ({action:'search'|'category'|'coords'|'clear-recent'}).
+ * extra(q) returns rows to show above the live results (recents, "Your location", ...).
+ */
+function attachAutocomplete(input, list, onPick, { extra = () => [], allowActions = false } = {}) {
+  let items = [], active = -1, seq = 0, loading = false, lastQ = '';
+  const card = input.closest('#search-card');
+  const rowHTML = (it, i) => {
+    if (it.header) return `<li class="s-header" data-i="${i}">${esc(it.header)}${it.clear ? '<button class="s-clear" data-clear="1">Clear</button>' : ''}</li>`;
+    const sub = [it.category && it.category !== it.name ? it.category : '', it.short].filter(Boolean).join(' · ');
+    const dist = it.action ? '' : distanceLabel(it);
+    return `
+      <li data-i="${i}" class="${i === active ? 'active' : ''} ${it.action ? 's-action' : ''}">
+        <span class="s-icon ${it.iconClass || ''}">${it.icon || emojiFor(it)}</span>
+        <span class="s-text"><div class="s-name">${it.action ? esc(it.name) : highlight(it.name, lastQ)}</div>${sub ? `<div class="s-sub">${esc(sub)}</div>` : ''}</span>
+        ${dist ? `<span class="s-dist">${dist}</span>` : ''}
+      </li>`;
   };
-  const close = () => { items = []; active = -1; render(); };
+  const render = () => {
+    const rows = items.map(rowHTML).join('') + (loading && !items.some((i) => !i.header && !i.action) ? '<li class="s-loading"><div class="spinner"></div>Searching…</li>' : '');
+    if (!rows) { list.classList.add('hidden'); card?.classList.remove('open'); return; }
+    list.innerHTML = rows;
+    list.classList.remove('hidden');
+    card?.classList.add('open');
+  };
+  const selectable = () => items.map((it, i) => (it.header ? -1 : i)).filter((i) => i >= 0);
+  const close = () => { seq++; items = []; active = -1; loading = false; render(); };
+  const local = (q) => {
+    const rows = [...extra(q)];
+    if (allowActions && q) {
+      const coords = parseCoords(q);
+      if (coords) rows.unshift({ action: 'coords', ...coords, name: `Go to ${fmtCoord(coords.lat, coords.lon)}`, icon: '🧭' });
+      const cat = matchCategory(q);
+      if (cat) rows.unshift({ action: 'category', cat, name: `${CAT_TITLE[cat].replace(/^\S+\s/, '')} nearby`, short: 'Search this area', icon: CAT_TITLE[cat].split(' ')[0] });
+    }
+    return rows;
+  };
   const fetchSuggestions = debounce(async (q) => {
     const my = ++seq;
     try {
       const data = await getJSON(photonURL(q));
       if (my !== seq || input.value.trim() !== q) return;
-      items = [...extraTop(q), ...data.features.map(photonToPlace)];
-      active = -1; render();
-    } catch { /* network hiccup: keep old list */ }
-  }, 220);
+      const places = dedupe(data.features.map(photonToPlace));
+      items = [...local(q), ...places];
+      if (allowActions) items.push(places.length
+        ? { action: 'search', q, name: `See all results for “${q}”`, icon: '🔍' }
+        : { action: 'none', name: `No places found for “${q}”`, short: 'Check the spelling or try a nearby city', icon: '🤷' });
+      loading = false; active = -1; render();
+    } catch { if (my === seq) { loading = false; render(); } }
+  }, 180);
 
-  input.addEventListener('input', () => {
-    const q = input.value.trim();
-    if (q.length < 2) { seq++; items = extraTop(q); render(); return; }
+  const update = () => {
+    const q = input.value.trim(); lastQ = q;
+    if (q.length < 2) { seq++; loading = false; items = local(q); active = -1; render(); return; }
+    items = local(q); loading = true; render();
     fetchSuggestions(q);
-  });
-  input.addEventListener('focus', () => { if (!input.value.trim()) { items = extraTop(''); render(); } });
+  };
+  input.addEventListener('input', update);
+  input.addEventListener('focus', () => { if (!input.value.trim() || !items.length) update(); });
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown' && items.length) { active = (active + 1) % items.length; render(); e.preventDefault(); }
-    else if (e.key === 'ArrowUp' && items.length) { active = (active - 1 + items.length) % items.length; render(); e.preventDefault(); }
-    else if (e.key === 'Enter') {
-      if (active >= 0 && items[active]) { pick(items[active]); }
-      else if (input === searchInput && input.value.trim()) { close(); runSearch(input.value.trim()); }
-      else if (items[0]) pick(items[0]);
+    const sel = selectable();
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && sel.length) {
+      const pos = sel.indexOf(active);
+      active = sel[e.key === 'ArrowDown' ? (pos + 1) % sel.length : (pos - 1 + sel.length) % sel.length];
+      render(); e.preventDefault();
+    } else if (e.key === 'Enter') {
       e.preventDefault();
+      const q = input.value.trim();
+      if (active >= 0 && items[active]) pick(items[active]);
+      else if (allowActions && q) { const c = parseCoords(q), cat = matchCategory(q); pick(c ? { action: 'coords', ...c } : cat ? { action: 'category', cat } : { action: 'search', q }); }
+      else { const first = items.find((i) => !i.header && !i.action); if (first) pick(first); }
     } else if (e.key === 'Escape') { close(); input.blur(); }
   });
-  const pick = (it) => { close(); onPick(it); };
+  const pick = (it) => {
+    if (!it || it.header || it.action === 'none') return;
+    close(); onPick(it);
+  };
   list.addEventListener('mousedown', (e) => {
-    const li = e.target.closest('li'); if (!li) return;
-    e.preventDefault(); pick(items[+li.dataset.i]);
+    e.preventDefault();
+    if (e.target.closest('[data-clear]')) { recent.clear(); update(); return; }
+    const li = e.target.closest('li[data-i]'); if (li) pick(items[+li.dataset.i]);
   });
   input.addEventListener('blur', () => setTimeout(close, 150));
   return { close };
 }
 
-attachAutocomplete(searchInput, suggestionsEl, (p) => { searchInput.value = p.name; showPlace(p, { fly: true }); syncClear(); }, {
-  extraTop: (q) => (q ? [] : state.saved.slice(0, 4).map((s) => ({ ...s, icon: '⭐' }))),
+attachAutocomplete(searchInput, suggestionsEl, (it) => {
+  if (it.action === 'search') { searchInput.value = it.q; syncClear(); return runSearch(it.q); }
+  if (it.action === 'category') { searchInput.value = CAT_TITLE[it.cat].replace(/^\S+\s/, ''); syncClear(); return nearbySearch(it.cat); }
+  if (it.action === 'coords') { searchInput.value = fmtCoord(it.lat, it.lon); syncClear(); map.flyTo({ center: [it.lon, it.lat], zoom: 16 }); return whatsHere({ lat: it.lat, lng: it.lon }); }
+  searchInput.value = it.name; syncClear();
+  recent.add(it);
+  showPlace({ ...it, tags: {} }, { fly: true });
+}, {
+  allowActions: true,
+  extra: (q) => {
+    if (q) return [];
+    const rec = recent.list().map((r) => ({ ...r, icon: '🕘', iconClass: 'muted' }));
+    const saved = state.saved.slice(0, 3).map((s) => ({ ...s, icon: '⭐' }));
+    return [
+      ...(saved.length ? [{ header: 'Saved' }, ...saved] : []),
+      ...(rec.length ? [{ header: 'Recent', clear: true }, ...rec.slice(0, 6)] : []),
+    ];
+  },
 });
 const syncClear = () => $('#clear-btn').classList.toggle('hidden', !searchInput.value);
 searchInput.addEventListener('input', syncClear);
 $('#clear-btn').onclick = () => { searchInput.value = ''; syncClear(); closePanel(); searchInput.focus(); };
 
 async function runSearch(q) {
+  const cat = matchCategory(q);
+  if (cat) return nearbySearch(cat);
   openPanel(`<div class="loading"><div class="spinner"></div>Searching…</div>`);
   try {
-    const data = await getJSON(photonURL(q, 15));
-    const places = data.features.map(photonToPlace);
-    if (places.length === 1) return showPlace(places[0], { fly: true });
+    const data = await getJSON(photonURL(q, 20));
+    const places = dedupe(data.features.map(photonToPlace));
+    if (places.length === 1) { recent.add(places[0]); return showPlace(places[0], { fly: true }); }
     showResults(places, `Results for “${q}”`);
   } catch { openPanel(`<div class="empty">Search failed. Check your connection and try again.</div>`); }
 }
@@ -266,12 +392,13 @@ async function runSearch(q) {
 const CHIP_FILTERS = {
   restaurant: '["amenity"~"^(restaurant|fast_food)$"]', cafe: '["amenity"="cafe"]', hotel: '["tourism"~"^(hotel|hostel|guest_house|motel)$"]',
   fuel: '["amenity"="fuel"]', supermarket: '["shop"~"^(supermarket|greengrocer|convenience)$"]', pharmacy: '["amenity"="pharmacy"]',
-  park: '["leisure"="park"]["name"]',
+  park: '["leisure"="park"]["name"]', atm: '["amenity"="atm"]', hospital: '["amenity"~"^(hospital|clinic)$"]',
 };
 // Fallback when Overpass is down: Photon keyword + OSM tag filter (only finds places whose name matches the word).
 const CHIP_PHOTON = {
   restaurant: ['restaurant', ['amenity:restaurant', 'amenity:fast_food']], cafe: ['cafe', ['amenity:cafe']], hotel: ['hotel', ['tourism:hotel', 'tourism:guest_house']],
   fuel: ['petrol', ['amenity:fuel']], supermarket: ['supermarket', ['shop:supermarket']], pharmacy: ['pharmacy', ['amenity:pharmacy']], park: ['park', ['leisure:park']],
+  atm: ['atm', ['amenity:atm']], hospital: ['hospital', ['amenity:hospital', 'amenity:clinic']],
 };
 async function nearbyViaPhoton(cat, b, signal) {
   const [q, tags] = CHIP_PHOTON[cat];
@@ -279,12 +406,19 @@ async function nearbyViaPhoton(cat, b, signal) {
   return (await getJSON(url, { signal })).features.map(photonToPlace);
 }
 let chipAbort;
-$$('.chip').forEach((chip) => chip.addEventListener('click', async () => {
-  const cat = chip.dataset.q;
-  if (chip.classList.contains('active')) { chip.classList.remove('active'); clearResults(); closePanel(); return; }
-  if (map.getZoom() < 11.5) { toast('Zoom in closer to see nearby places'); return; }
-  $$('.chip').forEach((c) => c.classList.toggle('active', c === chip));
-  openPanel(`<div class="loading"><div class="spinner"></div>Finding ${esc(chip.textContent.trim())} nearby…</div>`);
+$$('.chip').forEach((chip) => chip.addEventListener('click', () => {
+  if (chip.classList.contains('active')) { closePanel(); return; }
+  nearbySearch(chip.dataset.q);
+}));
+async function nearbySearch(cat) {
+  if (map.getZoom() < 11.5) {
+    // Too far out: zoom to the user (or the map centre) first so the search area is sensible.
+    if (state.me) map.jumpTo({ center: [state.me.lon, state.me.lat], zoom: 14 });
+    else { toast('Zoom in to an area first, or tap the location button'); return; }
+  }
+  const title = CAT_TITLE[cat];
+  $$('.chip').forEach((c) => c.classList.toggle('active', c.dataset.q === cat));
+  openPanel(`<div class="loading"><div class="spinner"></div>Finding ${esc(title.replace(/^\S+\s/, '').toLowerCase())} nearby…</div>`);
   chipAbort?.abort(); chipAbort = new AbortController();
   const b = map.getBounds();
   const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map((n) => n.toFixed(5)).join(',');
@@ -301,11 +435,11 @@ $$('.chip').forEach((chip) => chip.addEventListener('click', async () => {
     const c = map.getCenter();
     places = places.filter((p) => p.lat != null)
       .sort((a, z) => haversine([c.lng, c.lat], [a.lon, a.lat]) - haversine([c.lng, c.lat], [z.lon, z.lat]));
-    showResults(places, `${chip.textContent.trim()} in this area`, { keepView: true });
+    showResults(places, `${title} in this area`, { keepView: true });
   } catch (e) {
     if (e.name !== 'AbortError') openPanel(`<div class="empty">Couldn't load nearby places right now. The free servers may be busy, so try again in a moment.</div>`);
   }
-}));
+}
 
 /* ---------------- Results list ---------------- */
 function clearResults() { state.resultMarkers.forEach((m) => m.remove()); state.resultMarkers = []; state.results = null; }
@@ -317,11 +451,12 @@ function showResults(places, title, { keepView = false } = {}) {
   openPanel(`<div class="results-head">${esc(title)}</div>` + places.map((p, i) => `
     <div class="result" data-i="${i}">
       <div class="r-icon">${emojiFor(p)}</div>
-      <div><div class="r-name">${esc(p.name)}</div><div class="r-sub">${esc([p.category, p.short].filter(Boolean).join(' · '))}</div></div>
+      <div class="r-main"><div class="r-name">${esc(p.name)}</div><div class="r-sub">${esc([p.category, p.short].filter(Boolean).join(' · '))}</div></div>
+      <div class="r-dist">${distanceLabel(p)}</div>
     </div>`).join(''));
   $$('#panel .result').forEach((el) => {
     const p = places[+el.dataset.i];
-    el.onclick = () => showPlace(p, { fly: true, fromResults: true });
+    el.onclick = () => { recent.add(p); showPlace(p, { fly: true, fromResults: true }); };
   });
   places.forEach((p, i) => {
     const el = document.createElement('div'); el.className = 'result-dot'; el.title = p.name;
@@ -438,7 +573,7 @@ function closePanel() {
   document.body.classList.remove('panel-open', 'directions-mode');
   clearPlaceMarker(); clearResults(); clearRoute(); state.place = null;
   $$('.chip').forEach((c) => c.classList.remove('active'));
-  searchInput.placeholder = 'Search Map';
+  searchInput.placeholder = 'Search places, addresses, coordinates';
 }
 
 /* ---------------- Reverse geocode ---------------- */
@@ -585,7 +720,9 @@ function openDirections({ from, to } = {}) {
     attachAutocomplete(input, $(`#dir-${which}-s`), (p) => {
       if (p.isMe) { locate(true).then((me) => { if (!me) return; d[which] = { label: 'Your location', lat: me.lat, lon: me.lon, isMe: true }; input.value = 'Your location'; route(); }); return; }
       d[which] = placeToWaypoint(p); input.value = d[which].label; route();
-    }, { extraTop: (q) => (!q || 'your location'.startsWith(q.toLowerCase()) ? [MY_LOCATION, ...(q ? [] : state.saved.slice(0, 3).map((s) => ({ ...s, icon: '⭐' })))] : []) });
+    }, { extra: (q) => (!q || 'your location'.startsWith(q.toLowerCase())
+      ? [MY_LOCATION, ...(q ? [] : [...state.saved.slice(0, 3).map((s) => ({ ...s, icon: '⭐' })), ...recent.list().slice(0, 4).map((r) => ({ ...r, icon: '🕘', iconClass: 'muted' }))])]
+      : []) });
     input.addEventListener('input', () => { if (!input.value.trim()) { d[which] = null; } });
   }
   $$('.dir-modes .mode').forEach((b) => b.addEventListener('click', () => { d.mode = b.dataset.mode; $$('.dir-modes .mode').forEach((x) => x.classList.toggle('active', x === b)); route(); }));

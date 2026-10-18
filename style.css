@@ -257,3 +257,17 @@ body.dark-ui #toast { background: #e8eaed; color: #202124; }
   #layers { left: 8px !important; bottom: 24px; }
   #layer-menu { flex-wrap: wrap; max-width: calc(100vw - 110px); }
 }
+
+/* ---------- Suggestion extras ---------- */
+.suggestions .s-header { cursor: default; padding: 10px 18px 4px; font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; display: flex; justify-content: space-between; }
+.suggestions .s-header:hover { background: none; }
+.suggestions .s-clear { color: var(--blue); font-size: 12px; text-transform: none; letter-spacing: 0; }
+.suggestions .s-name b { font-weight: 600; }
+.suggestions .s-text { flex: 1; }
+.suggestions .s-dist { font-size: 12px; color: var(--muted); flex: none; margin-left: 8px; }
+.suggestions .s-icon.muted { background: transparent; filter: grayscale(1); opacity: .7; }
+.suggestions .s-action .s-name { color: var(--blue); }
+.suggestions .s-loading { cursor: default; color: var(--muted); font-size: 13px; gap: 10px; }
+.suggestions .s-loading:hover { background: none; }
+.result .r-main { flex: 1; min-width: 0; }
+.result .r-dist { font-size: 12px; color: var(--muted); flex: none; }

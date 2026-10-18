@@ -171,9 +171,17 @@ const StreetView = (() => {
     viewerEl.classList.add('loading');
     img.classList.remove('loaded');
     const src = p.img || p.large;
+    const same = () => current?.id === p.id; // compare by id: the drive list replaces photo objects
+    // Show the small version immediately, then swap in the full-size photo.
+    if (p.large && p.large !== src) {
+      const quick = new Image();
+      quick.onload = () => { if (same() && !img.dataset.full) { img.src = p.large; img.classList.add('loaded'); } };
+      quick.src = p.large;
+    }
+    delete img.dataset.full;
     const pre = new Image();
-    pre.onload = () => { if (current !== p) return; img.src = src; img.classList.add('loaded'); viewerEl.classList.remove('loading'); };
-    pre.onerror = () => { if (current === p) { viewerEl.classList.remove('loading'); toast("This photo couldn't be loaded"); } };
+    pre.onload = () => { if (!same()) return; img.src = src; img.dataset.full = '1'; img.classList.add('loaded'); viewerEl.classList.remove('loading'); };
+    pre.onerror = () => { if (same()) { viewerEl.classList.remove('loading'); if (!img.classList.contains('loaded')) toast("This photo couldn't be loaded"); } };
     pre.src = src;
     const d = p.date ? new Date(p.date.replace(' ', 'T')) : null;
     viewerEl.querySelector('.sv-date').textContent = d && !isNaN(d) ? `Captured ${d.toLocaleDateString([], { month: 'short', year: 'numeric' })}` : '';

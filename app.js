@@ -591,6 +591,7 @@ function renderPlace(p, fromResults, animate = true) {
   $('#back-results')?.addEventListener('click', () => showResults(state.results.places, state.results.title, { keepView: true }));
   if (typeof PlaceExtras !== 'undefined') PlaceExtras.render(p);
   if (typeof StreetView !== 'undefined') StreetView.preview(p);
+  if (typeof Tools !== 'undefined') Tools.placeHook(p);
   $$('#panel .info-row[data-k]').forEach((r) => r.addEventListener('click', () =>
     copy(r.dataset.k === 'coords' ? fmtCoord(p.lat, p.lon) : p.address, r.dataset.k === 'coords' ? 'Coordinates copied' : 'Address copied')));
   $$('#panel .action').forEach((b) => b.addEventListener('click', () => {
@@ -604,7 +605,8 @@ function renderPlace(p, fromResults, animate = true) {
     } else if (a === 'nearby') { searchInput.value = ''; searchInput.placeholder = `Search nearby ${p.name}`; map.jumpTo({ center: [p.lon, p.lat] }); searchInput.focus(); }
     else if (a === 'share') {
       const url = `${location.origin}${location.pathname}?q=${encodeURIComponent(p.name)}&ll=${p.lat.toFixed(6)},${p.lon.toFixed(6)}#map=17/${p.lat.toFixed(5)}/${p.lon.toFixed(5)}`;
-      if (navigator.share && innerWidth <= 640) navigator.share({ title: p.name, url }).catch(() => {}); else copy(url, 'Link copied');
+      if (typeof Tools !== 'undefined') Tools.shareSheet({ title: p.name, url });
+      else if (navigator.share && innerWidth <= 640) navigator.share({ title: p.name, url }).catch(() => {}); else copy(url, 'Link copied');
     }
   }));
 }

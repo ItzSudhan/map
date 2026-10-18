@@ -1,0 +1,101 @@
+/* Map: power tools (tools.js) */
+
+/* ---------- Modal (same look as mapx.js #modal) ---------- */
+#tools-modal { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.45); display: grid; place-items: center; animation: fadeIn .2s ease; padding: 16px; }
+#tools-modal .modal-card { width: min(460px, 100%); }
+#tools-modal p { margin: 4px 0 12px; line-height: 1.45; }
+
+/* ---------- Floating tool cards (isochrone, rings) ---------- */
+#tool-cards { position: absolute; top: 64px; right: 12px; z-index: 12; display: flex; flex-direction: column; gap: 8px; width: 264px; pointer-events: none; }
+.tool-card { pointer-events: auto; padding: 4px 12px 12px; font-size: 13px; border-radius: 12px; animation: menuIn .22s var(--spring); transform-origin: top right; }
+.tc-head { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-right: -8px; }
+.tc-head > .mi { color: var(--blue); font-size: 20px; }
+.tc-head b { flex: 1; font-weight: 500; }
+.tc-head .icon-btn { width: 36px; height: 36px; }
+.tc-head .icon-btn .mi { font-size: 20px; }
+.seg { display: flex; background: var(--hover); border-radius: 18px; padding: 3px; margin-top: 8px; }
+.seg button { flex: 1; height: 30px; border-radius: 15px; display: grid; place-items: center; color: var(--muted); font-size: 13px; font-weight: 500; transition: background-color .15s, color .15s; }
+.seg button .mi { font-size: 20px; }
+.seg button.active { background: var(--bg); color: var(--blue); box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.tc-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; align-items: center; }
+.tc-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.tc-legend i { width: 14px; height: 14px; border-radius: 4px; opacity: .75; }
+.tc-note { width: 100%; color: var(--muted); font-size: 12px; }
+.tc-status { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; padding: 4px 0; }
+.tc-status .spinner { width: 16px; height: 16px; }
+.tc-field { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; color: var(--muted); font-size: 12px; }
+.tc-field input { height: 36px; border: 1px solid #dadce0; border-radius: 8px; padding: 0 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--bg); outline: none; }
+.tc-field input:focus { border-color: var(--blue); }
+
+/* Origin dot for isochrones / rings */
+.tool-origin { width: 16px; height: 16px; border-radius: 50%; background: #1a73e8; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); animation: dotPop .4s var(--spring) both; }
+
+/* ---------- Elevation profile ---------- */
+.elev { position: relative; padding: 8px 0; }
+.elev-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+.elev-sum > span { display: inline-flex; align-items: center; gap: 4px; }
+.elev-sum .mi { font-size: 18px; color: var(--blue); }
+.elev-sum .muted { color: var(--muted); font-weight: 400; }
+.elev-chart { position: relative; width: 100%; }
+.elev-chart svg { display: block; width: 100%; height: 130px; touch-action: pan-y; cursor: crosshair; }
+.elev-chart text { font-size: 10px; fill: var(--muted); font-family: inherit; }
+.elev-chart .eg { stroke: var(--line); stroke-width: 1; }
+.elev-chart .ea { fill: var(--blue); opacity: .16; }
+.elev-chart .el { fill: none; stroke: var(--blue); stroke-width: 2; stroke-linejoin: round; }
+.elev-chart .eh line { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.elev-chart .eh circle { fill: var(--blue); stroke: #fff; stroke-width: 2; }
+.elev-tip { position: absolute; top: -6px; transform: translateX(-50%); background: var(--text); color: var(--bg); font-size: 12px; padding: 3px 8px; border-radius: 6px; white-space: nowrap; pointer-events: none; }
+.elev-dot { width: 14px; height: 14px; border-radius: 50%; background: #1a73e8; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); }
+
+/* ---------- Share sheet ---------- */
+.share-title { font-weight: 500; font-size: 15px; margin-bottom: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.share-link { display: flex; gap: 8px; align-items: center; }
+.share-link input { flex: 1; min-width: 0; height: 36px; resize: none; }
+#tools-modal .btn { display: inline-flex; align-items: center; gap: 6px; }
+#tools-modal .btn .mi { font-size: 18px; }
+.share-qr { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 16px 0 8px; font-size: 12px; }
+.share-qr .qr-svg { width: 188px; height: 188px; border-radius: 8px; border: 1px solid var(--line); }
+.share-quick { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
+.x-logo { font-size: 15px; line-height: 1; }
+
+/* ---------- Report / coordinates ---------- */
+.ok-icon { color: #188038; vertical-align: -6px; margin-right: 8px; }
+.coord-list { display: flex; flex-direction: column; }
+.coord-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.coord-row:last-child { border-bottom: 0; }
+.coord-row .muted { font-size: 12px; margin-bottom: 2px; }
+.coord-row code { font-family: ui-monospace, Menlo, monospace; font-size: 14px; word-break: break-all; }
+.coord-row .icon-btn .mi { font-size: 20px; }
+
+/* ---------- Voice search ---------- */
+#mic-btn .mi { font-size: 22px; }
+#mic-btn.listening { color: #fff; background: #ea4335; animation: micPulse 1.2s ease-out infinite; }
+@keyframes micPulse { 0% { box-shadow: 0 0 0 0 rgba(234, 67, 53, .5); } 100% { box-shadow: 0 0 0 12px rgba(234, 67, 53, 0); } }
+
+/* ---------- Dark UI ---------- */
+body.dark-ui .seg button.active { background: #3c4043; color: #8ab4f8; }
+body.dark-ui .tc-field input { border-color: #5f6368; }
+body.dark-ui .elev-chart .ea { fill: #8ab4f8; }
+body.dark-ui .elev-chart .el { stroke: #8ab4f8; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  #tool-cards { top: 108px; left: 8px; right: 8px; width: auto; }
+  body.panel-open #tool-cards { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #mic-btn.listening { animation: none; box-shadow: 0 0 0 4px rgba(234, 67, 53, .35); }
+}
+
+/* ---------- Print ---------- */
+#print-sheet { display: none; }
+@media print {
+  html, body { height: auto; overflow: visible; }
+  #search-card, #chips, #controls, #layers, #drawer, #drawer-backdrop, #ctx-menu, #toast, #measure-badge, #tool-cards,
+  #tools-modal, #modal, #panel, .maplibregl-control-container { display: none !important; }
+  /* "Print map" prints a snapshot image instead of the live WebGL canvas, which often prints blank. */
+  body.printing > :not(#print-sheet) { display: none !important; }
+  body.printing #print-sheet { display: block; }
+  #print-sheet img { display: block; max-width: 100%; max-height: 100vh; margin: 0 auto; }
+}

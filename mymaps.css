@@ -1,0 +1,116 @@
+/* My Maps: drawing toolbar, pins, panel views and the "Save to list" dialog (mymaps.js) */
+
+/* ---------- Toolbar + hint (takes the place of the category chips) ---------- */
+body.mm-open #chips { display: none; }
+#mm-bar, #mm-hint { position: absolute; left: 418px; z-index: 12; max-width: calc(100vw - 430px); }
+body.panel-open #mm-bar, body.panel-open #mm-hint { left: calc(var(--panel-w) + 12px); max-width: calc(100vw - var(--panel-w) - 24px); }
+#mm-bar { top: 12px; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 24px; overflow-x: auto; scrollbar-width: none; animation: dropIn .25s var(--ease-out); }
+#mm-hint { top: 68px; padding: 7px 14px; border-radius: 16px; font-size: 13px; color: var(--muted); animation: fadeIn .2s ease; }
+#mm-hint b { color: var(--text); font-weight: 500; margin-right: 8px; }
+.mm-tool { width: 40px; height: 40px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--muted); transition: background-color .15s, color .15s, transform .18s var(--spring), opacity .15s; }
+.mm-tool:hover { background: var(--hover); color: var(--text); }
+.mm-tool:active { transform: scale(.88); }
+.mm-tool.on { background: #e8f0fe; color: var(--blue); }
+.mm-tool:disabled { opacity: .35; pointer-events: none; }
+.mm-sep { width: 1px; height: 24px; flex: none; background: var(--line); margin: 0 4px; }
+body.mm-draw #map .maplibregl-canvas { cursor: crosshair !important; }
+
+/* ---------- Map markers ---------- */
+.mm-pin { width: 30px; height: 40px; cursor: pointer; }
+.mm-pin-in { position: relative; width: 100%; height: 100%; transform-origin: 50% 100%; transition: transform .2s var(--spring); filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+.mm-pin svg { width: 30px; height: 40px; fill: var(--c); stroke: #fff; stroke-width: 2; }
+.mm-pin .mi { position: absolute; top: 6px; left: 6px; font-size: 18px; color: #fff; }
+.mm-pin:hover .mm-pin-in { transform: scale(1.08); }
+.mm-pin.sel .mm-pin-in { transform: scale(1.25); }
+.mm-dot { width: 26px; height: 26px; border-radius: 50%; background: var(--c); color: #fff; display: grid; place-items: center; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); cursor: pointer; animation: dotPop .35s var(--spring) both; transition: scale .2s var(--spring); }
+.mm-dot .mi { font-size: 15px; }
+.mm-dot:hover { scale: 1.2; }
+
+/* ---------- Panel ---------- */
+.mm-top { display: flex; align-items: center; gap: 4px; padding: 0 12px 8px 24px; }
+.mm-top h2 { flex: 1; margin: 0; font-size: 20px; font-weight: 500; }
+.mm-editor .mm-top { padding-left: 12px; }
+.mm-editor .mm-top h2 { flex: none; margin: 0 6px 0 4px; }
+.mm-sec { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 14px 24px 6px; border-top: 1px solid var(--line); font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.mm-sec button { display: inline-flex; align-items: center; gap: 2px; color: var(--blue); font-size: 13px; text-transform: none; letter-spacing: 0; }
+.mm-sec .mi { font-size: 18px; }
+.mm-group.open { background: var(--hover); }
+.mm-row { display: flex; align-items: center; gap: 10px; padding: 6px 16px 6px 14px; }
+.mm-main { flex: 1; min-width: 0; cursor: pointer; padding: 4px 0; }
+.mm-name { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mm-group.open .mm-name { color: var(--blue); }
+.mm-sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mm-chev { color: var(--muted); transition: transform .2s var(--ease-out); }
+.mm-group.open .mm-chev { transform: rotate(180deg); }
+.mm-vis { width: 36px; height: 36px; flex: none; border-radius: 50%; display: grid; place-items: center; color: var(--muted); transition: background-color .15s, color .15s, transform .18s var(--spring); }
+.mm-vis:hover { background: var(--line); }
+.mm-vis:active { transform: scale(.88); }
+.mm-vis.on { color: var(--blue); }
+.mm-ficon { width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--c); color: #fff; display: grid; place-items: center; }
+.mm-ficon .mi { font-size: 17px; }
+.mm-body { padding: 2px 0 10px; }
+.mm-body .result { background: var(--bg); padding: 10px 16px 10px 24px; align-items: center; }
+.mm-body .result:hover { background: var(--hover); }
+.mm-item .icon-btn { width: 32px; height: 32px; }
+.mm-item .icon-btn .mi { font-size: 18px; }
+.mm-empty { padding: 12px 24px; font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+.mm-input { display: block; width: calc(100% - 48px); margin: 4px 24px; padding: 9px 12px; font: inherit; font-size: 14px; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; outline: 0; resize: vertical; transition: border-color .15s, box-shadow .15s; }
+.mm-input:focus { border-color: var(--blue); box-shadow: 0 0 0 1px var(--blue); }
+.mm-field { display: block; margin: 12px 24px 0; font-size: 12px; color: var(--muted); }
+.mm-field .mm-input { width: 100%; margin: 4px 0 0; }
+.mm-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 24px; }
+.mm-actions .btn { display: inline-flex; align-items: center; gap: 4px; background: var(--bg); }
+.mm-actions .btn .mi { font-size: 18px; }
+.mm-actions .btn.primary { background: var(--blue); }
+.btn.danger { color: #d93025; }
+.btn.danger:hover { background: #fce8e6; }
+.mm-measure { display: flex; align-items: center; gap: 12px; margin: 16px 24px 0; font-size: 14px; }
+.mm-label { margin: 16px 24px 8px; font-size: 12px; color: var(--muted); }
+.mm-swatches, .mm-icons { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 24px; }
+.mm-sw { width: 30px; height: 30px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(0,0,0,.12); transition: transform .18s var(--spring), box-shadow .15s; }
+.mm-sw:hover { transform: scale(1.12); }
+.mm-sw.on { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--c); }
+.mm-ic { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); background: var(--hover); transition: background-color .15s, color .15s, transform .18s var(--spring); }
+.mm-ic:hover { transform: scale(1.08); }
+.mm-ic.on { background: var(--c); color: #fff; }
+.mm-ic .mi { font-size: 20px; }
+.mm-tip { margin: 4px 24px 16px; font-size: 12px; color: var(--muted); }
+
+/* ---------- "Save to list" dialog ---------- */
+#mm-pick-back { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.32); animation: fadeIn .2s ease; }
+#mm-pick { width: min(360px, 100%); max-height: 85vh; overflow-y: auto; padding: 8px 0 12px; border-radius: 16px; animation: menuIn .25s var(--spring); }
+.mm-pick-head { display: flex; align-items: center; gap: 8px; padding: 6px 8px 8px 24px; }
+.mm-pick-head .mm-main { cursor: default; }
+.mm-pick-row { display: flex; align-items: center; gap: 14px; padding: 10px 24px; cursor: pointer; transition: background-color .15s; }
+.mm-pick-row:hover { background: var(--hover); }
+.mm-pick-row input { position: absolute; opacity: 0; pointer-events: none; }
+.mm-pick-row:has(input:focus-visible) { outline: 2px solid var(--blue); outline-offset: -2px; }
+.mm-pick-name { flex: 1; min-width: 0; font-size: 14px; }
+.mm-check { color: var(--blue); visibility: hidden; }
+.mm-pick-row input:checked ~ .mm-check { visibility: visible; animation: pop .3s var(--spring); }
+.mm-pick-new { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 24px; color: var(--blue); font-size: 14px; font-weight: 500; }
+.mm-pick-new .mi { width: 28px; font-size: 22px; }
+.mm-pick-new:hover { background: var(--hover); }
+.mm-pick-note { margin-top: 10px; }
+.mm-pick-foot { display: flex; justify-content: flex-end; padding: 8px 24px 0; }
+
+/* ---------- Dark UI ---------- */
+body.dark-ui .mm-tool.on { background: #1e3a5f; color: #8ab4f8; }
+body.dark-ui .btn.danger { color: #f28b82; }
+body.dark-ui .btn.danger:hover { background: #3c2a2a; }
+
+/* ---------- Mobile ---------- */
+@media (max-width: 640px) {
+  #mm-bar, body.panel-open #mm-bar { top: 64px; left: 8px; right: 8px; max-width: none; justify-content: space-between; }
+  #mm-hint, body.panel-open #mm-hint { top: 116px; left: 8px; right: 8px; max-width: none; text-align: center; }
+  #mm-bar { gap: 0; }
+  #mm-pick-back { place-items: end stretch; padding: 0; }
+  #mm-pick { width: 100%; max-height: 75vh; border-radius: 16px 16px 0 0; animation: mmSheet .25s var(--ease-out); padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+}
+@keyframes mmSheet { from { transform: translateY(40px); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  #mm-bar, #mm-hint, #mm-pick, .mm-dot, .mm-check { animation: none !important; }
+  .mm-pin-in, .mm-sw, .mm-ic, .mm-tool, .mm-chev { transition: none !important; }
+}

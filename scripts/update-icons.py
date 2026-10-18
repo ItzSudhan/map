@@ -13,6 +13,9 @@ DYNAMIC = {
     'turn_left', 'turn_right', 'turn_slight_left', 'turn_slight_right', 'turn_sharp_left', 'turn_sharp_right', 'u_turn_left',
     'straight', 'roundabout_left', 'roundabout_right', 'merge', 'fork_left', 'fork_right', 'ramp_left', 'ramp_right',
     'clear_night', 'partly_cloudy_night', 'thermostat', 'fullscreen_exit', 'road', 'pause', 'volume_off', 'volume_up',
+    # My Maps pin icons
+    'location_on', 'star', 'favorite', 'home', 'work', 'restaurant', 'local_cafe', 'hotel', 'park', 'flag', 'photo_camera',
+    'directions_car', 'luggage', 'bookmark', 'visibility', 'visibility_off',
 }
 
 names = set(DYNAMIC)

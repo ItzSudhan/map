@@ -598,6 +598,7 @@ function renderPlace(p, fromResults, animate = true) {
     const a = b.dataset.a;
     if (a === 'dir') openDirections({ to: placeToWaypoint(p) });
     else if (a === 'save') {
+      if (typeof Lists !== 'undefined') { Lists.pickFor(p, () => renderPlace(p, fromResults, false)); return; }
       if (isSaved(p)) state.saved = state.saved.filter((s) => !(Math.abs(s.lat - p.lat) < 1e-6 && Math.abs(s.lon - p.lon) < 1e-6));
       else state.saved.unshift({ name: p.name, category: p.category, address: p.address, short: p.short, lat: p.lat, lon: p.lon, value: p.value, type: p.type, osm: p.osm, tags: {} });
       persistSaved(); renderPlace(p, fromResults, false); toast(isSaved(p) ? 'Saved to your places' : 'Removed from saved');
@@ -654,6 +655,7 @@ async function whatsHere(lngLat) {
 
 /* Click on a labelled POI on the base map */
 map.on('click', (e) => {
+  if (document.body.classList.contains('drawing')) return; // My Maps handles clicks
   if (state.measure.on) return addMeasurePoint(e.lngLat);
   if (document.body.classList.contains('sv-mode') || document.body.classList.contains('sv-open')) return; // Street View handles clicks
   hideCtx();

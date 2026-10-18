@@ -114,9 +114,23 @@ function addOverlayLayers() {
 }
 
 /* ---------------- Helpers ---------------- */
+/** Replay the staggered entrance animation on a container (see .reveal in style.css). */
+function reveal(el) {
+  if (!el) return;
+  el.classList.remove('reveal'); void el.offsetWidth; el.classList.add('reveal');
+  clearTimeout(el._swapT); el._swapT = setTimeout(() => el.classList.remove('reveal'), 700);
+}
+/** Shimmering placeholder rows while something loads. */
+function skeleton(label, rows = 5) {
+  const widths = ['w1', 'w2', 'w3'];
+  return `<div class="skel-head"><div class="spinner"></div>${esc(label)}</div>` + Array.from({ length: rows }, (_, i) => `
+    <div class="skel-row" style="opacity:${1 - i * 0.14}"><div class="sk sk-icon"></div><div class="sk-lines"><div class="sk sk-line ${widths[i % 3]}"></div><div class="sk sk-line ${widths[(i + 1) % 3]}" style="height:9px"></div></div></div>`).join('');
+}
 function toast(msg, ms = 2500) {
-  const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.add('hidden'), ms);
+  const t = $('#toast'); t.textContent = msg;
+  t.classList.remove('hidden', 'leaving'); void t.offsetWidth;
+  clearTimeout(toast._t); clearTimeout(toast._t2);
+  toast._t = setTimeout(() => { t.classList.add('leaving'); toast._t2 = setTimeout(() => t.classList.add('hidden'), 200); }, ms);
 }
 async function copy(text, msg = 'Copied to clipboard') {
   try { await navigator.clipboard.writeText(text); toast(msg); } catch { prompt('Copy:', text); }
@@ -211,6 +225,15 @@ function photonURL(q, limit = 8) {
   return `${CONFIG.photon}/api/?q=${encodeURIComponent(q)}&limit=${limit}&lang=${lang}&lat=${c.lat}&lon=${c.lng}&zoom=${z}&location_bias_scale=${z >= 10 ? 0.6 : 0.3}`;
 }
 
+/* When zoomed into an area, list places within ~500 km first (keeping Photon's order inside each group). */
+function preferNearby(places) {
+  if (map.getZoom() < 7) return places;
+  const c = [map.getCenter().lng, map.getCenter().lat];
+  const near = [], far = [];
+  for (const p of places) (haversine(c, [p.lon, p.lat]) < 500000 ? near : far).push(p);
+  return [...near, ...far];
+}
+
 /* Remove near-identical hits (same name within ~300 m), which Photon returns for big places. */
 function dedupe(places) {
   const out = [];
@@ -275,20 +298,22 @@ function attachAutocomplete(input, list, onPick, { extra = () => [], allowAction
   let items = [], active = -1, seq = 0, loading = false, lastQ = '';
   const card = input.closest('#search-card');
   const rowHTML = (it, i) => {
-    if (it.header) return `<li class="s-header" data-i="${i}">${esc(it.header)}${it.clear ? '<button class="s-clear" data-clear="1">Clear</button>' : ''}</li>`;
+    if (it.header) return `<li class="s-header" data-i="${i}" style="--i:${i}">${esc(it.header)}${it.clear ? '<button class="s-clear" data-clear="1">Clear</button>' : ''}</li>`;
     const sub = [it.category && it.category !== it.name ? it.category : '', it.short].filter(Boolean).join(' · ');
     const dist = it.action ? '' : distanceLabel(it);
     return `
-      <li data-i="${i}" class="${i === active ? 'active' : ''} ${it.action ? 's-action' : ''}">
+      <li data-i="${i}" style="--i:${i}" class="${i === active ? 'active' : ''} ${it.action ? 's-action' : ''}">
         <span class="s-icon ${it.iconClass || ''}">${it.icon || emojiFor(it)}</span>
         <span class="s-text"><div class="s-name">${it.action ? esc(it.name) : highlight(it.name, lastQ)}</div>${sub ? `<div class="s-sub">${esc(sub)}</div>` : ''}</span>
         ${dist ? `<span class="s-dist">${dist}</span>` : ''}
       </li>`;
   };
-  const render = () => {
+  const render = (animate = false) => {
     const rows = items.map(rowHTML).join('') + (loading && !items.some((i) => !i.header && !i.action) ? '<li class="s-loading"><div class="spinner"></div>Searching…</li>' : '');
     if (!rows) { list.classList.add('hidden'); card?.classList.remove('open'); return; }
+    const wasHidden = list.classList.contains('hidden');
     list.innerHTML = rows;
+    list.classList.toggle('animate', animate || wasHidden);
     list.classList.remove('hidden');
     card?.classList.add('open');
   };
@@ -309,12 +334,12 @@ function attachAutocomplete(input, list, onPick, { extra = () => [], allowAction
     try {
       const data = await getJSON(photonURL(q));
       if (my !== seq || input.value.trim() !== q) return;
-      const places = dedupe(data.features.map(photonToPlace));
+      const places = preferNearby(dedupe(data.features.map(photonToPlace)));
       items = [...local(q), ...places];
       if (allowActions) items.push(places.length
         ? { action: 'search', q, name: `See all results for “${q}”`, icon: '🔍' }
         : { action: 'none', name: `No places found for “${q}”`, short: 'Check the spelling or try a nearby city', icon: '🤷' });
-      loading = false; active = -1; render();
+      loading = false; active = -1; render(true);
     } catch { if (my === seq) { loading = false; render(); } }
   }, 180);
 
@@ -379,10 +404,10 @@ $('#clear-btn').onclick = () => { searchInput.value = ''; syncClear(); closePane
 async function runSearch(q) {
   const cat = matchCategory(q);
   if (cat) return nearbySearch(cat);
-  openPanel(`<div class="loading"><div class="spinner"></div>Searching…</div>`);
+  openPanel(skeleton('Searching…'));
   try {
     const data = await getJSON(photonURL(q, 20));
-    const places = dedupe(data.features.map(photonToPlace));
+    const places = preferNearby(dedupe(data.features.map(photonToPlace)));
     if (places.length === 1) { recent.add(places[0]); return showPlace(places[0], { fly: true }); }
     showResults(places, `Results for “${q}”`);
   } catch { openPanel(`<div class="empty">Search failed. Check your connection and try again.</div>`); }
@@ -418,7 +443,7 @@ async function nearbySearch(cat) {
   }
   const title = CAT_TITLE[cat];
   $$('.chip').forEach((c) => c.classList.toggle('active', c.dataset.q === cat));
-  openPanel(`<div class="loading"><div class="spinner"></div>Finding ${esc(title.replace(/^\S+\s/, '').toLowerCase())} nearby…</div>`);
+  openPanel(skeleton(`Finding ${title.replace(/^\S+\s/, '').toLowerCase()} nearby…`));
   chipAbort?.abort(); chipAbort = new AbortController();
   const b = map.getBounds();
   const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map((n) => n.toFixed(5)).join(',');
@@ -458,9 +483,16 @@ function showResults(places, title, { keepView = false } = {}) {
     const p = places[+el.dataset.i];
     el.onclick = () => { recent.add(p); showPlace(p, { fly: true, fromResults: true }); };
   });
+  const rowsEls = $$('#panel .result');
   places.forEach((p, i) => {
     const el = document.createElement('div'); el.className = 'result-dot'; el.title = p.name;
+    el.style.animationDelay = `${Math.min(i, 20) * 25}ms`;
     el.addEventListener('click', (e) => { e.stopPropagation(); showPlace(p, { fromResults: true }); });
+    // Hovering a dot highlights its row, and vice versa.
+    el.addEventListener('mouseenter', () => { rowsEls[i]?.classList.add('hl'); rowsEls[i]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+    el.addEventListener('mouseleave', () => rowsEls[i]?.classList.remove('hl'));
+    rowsEls[i]?.addEventListener('mouseenter', () => el.classList.add('hl'));
+    rowsEls[i]?.addEventListener('mouseleave', () => el.classList.remove('hl'));
     state.resultMarkers.push(new maplibregl.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(map));
   });
   if (!keepView) {
@@ -474,8 +506,10 @@ function showResults(places, title, { keepView = false } = {}) {
 function clearPlaceMarker() { state.placeMarker?.remove(); state.placeMarker = null; }
 
 function setPlaceMarker(p) {
+  const cur = state.placeMarker?.getLngLat();
+  if (cur && Math.abs(cur.lat - p.lat) < 1e-7 && Math.abs(cur.lng - p.lon) < 1e-7) return;
   clearPlaceMarker();
-  const el = document.createElement('div'); el.className = 'pin-marker'; el.innerHTML = ICONS.pin;
+  const el = document.createElement('div'); el.className = 'pin-marker'; el.innerHTML = ICONS.pin + '<span class="pin-shadow"></span>';
   state.placeMarker = new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.lon, p.lat]).addTo(map);
 }
 
@@ -500,10 +534,11 @@ const isSaved = (p) => state.saved.some((s) => Math.abs(s.lat - p.lat) < 1e-6 &&
 function persistSaved() { localStorage.setItem('map.saved', JSON.stringify(state.saved)); }
 
 async function showPlace(p, { fly = false, fromResults = false } = {}) {
+  const isNew = state.place !== p;
   state.place = p;
   if (!fromResults) clearResults();
   setPlaceMarker(p);
-  renderPlace(p, fromResults);
+  renderPlace(p, fromResults, isNew);
   if (fly) flyToPlace(p);
   // Enrich with OSM tags (phone, website, hours) when we only have a Photon hit.
   if (p.osm && !Object.keys(p.tags).length && ['N', 'W', 'R'].includes(p.osm.type)) {
@@ -511,12 +546,12 @@ async function showPlace(p, { fly = false, fromResults = false } = {}) {
       const q = `[out:json][timeout:10];${OSM_TYPE[p.osm.type]}(${p.osm.id});out tags;`;
       const data = await overpass(q);
       const tags = data.elements[0]?.tags;
-      if (tags && state.place === p) { p.tags = tags; renderPlace(p, fromResults); }
+      if (tags && state.place === p) { p.tags = tags; renderPlace(p, fromResults, false); }
     } catch { /* optional */ }
   }
 }
 
-function renderPlace(p, fromResults) {
+function renderPlace(p, fromResults, animate = true) {
   const t = p.tags || {};
   const rows = [];
   if (p.address) rows.push(['📍', esc(p.address), 'addr']);
@@ -532,7 +567,7 @@ function renderPlace(p, fromResults) {
   const osmLink = p.osm ? `https://www.openstreetmap.org/${OSM_TYPE[p.osm.type]}/${p.osm.id}` : `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lon}#map=18/${p.lat}/${p.lon}`;
   openPanel(`
     ${fromResults && state.results ? `<button class="steps-toggle" id="back-results" style="margin:-56px 0 16px 16px;display:flex;gap:6px;align-items:center;position:relative">${ICONS.back} Back to results</button>` : ''}
-    <div class="place-hero">${emojiFor(p)}</div>
+    <div class="place-hero"><span>${emojiFor(p)}</span></div>
     <div class="place-head"><h1>${esc(p.name)}</h1><div class="cat">${esc(p.category)}</div></div>
     <div class="actions">
       <button class="action primary" data-a="dir"><span class="circ">${ICONS.directions}</span>Directions</button>
@@ -542,7 +577,7 @@ function renderPlace(p, fromResults) {
     </div>
     ${rows.map(([i, h, k]) => `<div class="info-row" ${k ? `data-k="${k}"` : ''}><span class="ir-icon">${i}</span><span>${h}</span></div>`).join('')}
     <div class="attribution-note">Data from <a href="${osmLink}" target="_blank" rel="noopener">OpenStreetMap</a>. Something wrong? <a href="https://www.openstreetmap.org/note/new#map=18/${p.lat}/${p.lon}" target="_blank" rel="noopener">Suggest an edit</a>.</div>
-  `);
+  `, { animate, keepScroll: !animate });
   $('#back-results')?.addEventListener('click', () => showResults(state.results.places, state.results.title, { keepView: true }));
   $$('#panel .info-row[data-k]').forEach((r) => r.addEventListener('click', () =>
     copy(r.dataset.k === 'coords' ? fmtCoord(p.lat, p.lon) : p.address, r.dataset.k === 'coords' ? 'Coordinates copied' : 'Address copied')));
@@ -552,7 +587,8 @@ function renderPlace(p, fromResults) {
     else if (a === 'save') {
       if (isSaved(p)) state.saved = state.saved.filter((s) => !(Math.abs(s.lat - p.lat) < 1e-6 && Math.abs(s.lon - p.lon) < 1e-6));
       else state.saved.unshift({ name: p.name, category: p.category, address: p.address, short: p.short, lat: p.lat, lon: p.lon, value: p.value, type: p.type, osm: p.osm, tags: {} });
-      persistSaved(); renderPlace(p, fromResults); toast(isSaved(p) ? 'Saved to your places' : 'Removed from saved');
+      persistSaved(); renderPlace(p, fromResults, false); toast(isSaved(p) ? 'Saved to your places' : 'Removed from saved');
+      $('#panel .action[data-a="save"]')?.classList.add('just-toggled');
     } else if (a === 'nearby') { searchInput.value = ''; searchInput.placeholder = `Search nearby ${p.name}`; map.jumpTo({ center: [p.lon, p.lat] }); searchInput.focus(); }
     else if (a === 'share') {
       const url = `${location.origin}${location.pathname}?q=${encodeURIComponent(p.name)}&ll=${p.lat.toFixed(6)},${p.lon.toFixed(6)}#map=17/${p.lat.toFixed(5)}/${p.lon.toFixed(5)}`;
@@ -562,14 +598,23 @@ function renderPlace(p, fromResults) {
 }
 
 /* ---------------- Panel ---------------- */
-function openPanel(html) {
-  $('#panel-content').innerHTML = html;
-  $('#panel').classList.remove('hidden');
-  $('#panel').scrollTop = 0;
+function openPanel(html, { animate = true, keepScroll = false } = {}) {
+  const panel = $('#panel'), content = $('#panel-content');
+  clearTimeout(closePanel._t);
+  panel.classList.remove('closing');
+  content.innerHTML = html;
+  panel.classList.remove('hidden');
+  if (!keepScroll) panel.scrollTop = 0;
+  if (animate) reveal(content);
   document.body.classList.add('panel-open');
 }
 function closePanel() {
-  $('#panel').classList.add('hidden');
+  const panel = $('#panel');
+  if (!panel.classList.contains('hidden')) {
+    panel.classList.add('closing');
+    clearTimeout(closePanel._t);
+    closePanel._t = setTimeout(() => { panel.classList.add('hidden'); panel.classList.remove('closing'); }, 180);
+  }
   document.body.classList.remove('panel-open', 'directions-mode');
   clearPlaceMarker(); clearResults(); clearRoute(); state.place = null;
   $$('.chip').forEach((c) => c.classList.remove('active'));
@@ -742,14 +787,14 @@ async function route() {
   renderDirMarkers();
   if (!d.from || !d.to) { d.routes = []; renderRoutes(); if (body) body.innerHTML = `<div class="dir-note">Pick a start and destination. Tip: right-click anywhere on the map for “Directions from/to here”.</div>`; return; }
   const my = ++routeSeq;
-  body.innerHTML = `<div class="loading"><div class="spinner"></div>Finding the best routes…</div>`;
+  body.innerHTML = skeleton('Finding the best routes…', 3);
   const url = `${CONFIG.osrm[d.mode]}/route/v1/driving/${d.from.lon},${d.from.lat};${d.to.lon},${d.to.lat}?overview=full&geometries=geojson&steps=true&alternatives=true`;
   try {
     const data = await getJSON(url);
     if (my !== routeSeq) return;
     if (data.code !== 'Ok' || !data.routes.length) throw new Error(data.code);
     d.routes = data.routes; d.active = 0; d.showSteps = false;
-    renderRoutes(); renderDirections();
+    renderRoutes(true); renderDirections(); reveal(body);
     const bounds = new maplibregl.LngLatBounds();
     data.routes.forEach((r) => r.geometry.coordinates.forEach((c) => bounds.extend(c)));
     map.fitBounds(bounds, { padding: fitPadding(), duration: 900 });
@@ -769,7 +814,7 @@ function renderDirMarkers() {
     m.on('dragend', () => dragWaypoint('from', m)); state.dirMarkers.push(m);
   }
   if (to) {
-    const el = document.createElement('div'); el.className = 'pin-marker'; el.innerHTML = ICONS.pin;
+    const el = document.createElement('div'); el.className = 'pin-marker'; el.innerHTML = ICONS.pin + '<span class="pin-shadow"></span>';
     const m = new maplibregl.Marker({ element: el, anchor: 'bottom', draggable: true }).setLngLat([to.lon, to.lat]).addTo(map);
     m.on('dragend', () => dragWaypoint('to', m)); state.dirMarkers.push(m);
   }
@@ -781,20 +826,34 @@ function dragWaypoint(which, marker) {
   labelWaypoint(which, wp); route();
 }
 
-function renderRoutes() {
+/** Draw routes. With animate=true the active route "draws itself" from start to end. */
+function renderRoutes(animate = false) {
   const src = map.getSource('routes'); if (!src) return;
   const { routes, active, mode } = state.dir;
-  // Draw alternatives first so the active route sits on top.
-  const features = routes.map((r, i) => ({ type: 'Feature', properties: { active: i === active, i, mode }, geometry: r.geometry }))
-    .sort((a, b) => a.properties.active - b.properties.active);
-  src.setData({ type: 'FeatureCollection', features });
+  cancelAnimationFrame(renderRoutes._raf);
   if (map.getLayer('route-casing')) map.setPaintProperty('route-casing', 'line-opacity', mode === 'foot' ? 0 : 1);
+  // Draw alternatives first so the active route sits on top.
+  const build = (activeCoords) => routes.map((r, i) => ({
+    type: 'Feature', properties: { active: i === active, i, mode },
+    geometry: i === active && activeCoords ? { type: 'LineString', coordinates: activeCoords } : r.geometry,
+  })).sort((a, b) => a.properties.active - b.properties.active);
+  const coords = routes[active]?.geometry.coordinates;
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!animate || !coords || coords.length < 3 || reduce) { src.setData({ type: 'FeatureCollection', features: build() }); return; }
+  const start = performance.now(), dur = 750;
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / dur), e = 1 - Math.pow(1 - t, 3);
+    const n = Math.max(2, Math.ceil(e * coords.length));
+    src.setData({ type: 'FeatureCollection', features: build(coords.slice(0, n)) });
+    if (t < 1) renderRoutes._raf = requestAnimationFrame(step);
+  };
+  renderRoutes._raf = requestAnimationFrame(step);
 }
 function clearRoute() {
   state.dir.routes = []; renderRoutes();
   state.dirMarkers.forEach((m) => m.remove()); state.dirMarkers = [];
 }
-map.on('click', 'route-alt', (e) => { const i = e.features[0]?.properties.i; if (i != null) { state.dir.active = +i; renderRoutes(); renderDirections(); } });
+map.on('click', 'route-alt', (e) => { const i = e.features[0]?.properties.i; if (i != null) { state.dir.active = +i; renderRoutes(true); renderDirections(); } });
 
 function renderDirections() {
   const d = state.dir, body = $('#dir-body'); if (!body) return;
@@ -812,9 +871,9 @@ function renderDirections() {
     </div>
     <button class="steps-toggle" id="steps-toggle">${d.showSteps ? 'Hide' : 'Show'} step-by-step directions</button>
     ${d.showSteps ? `<ol class="steps">${steps.map((s, i) => `
-      <li data-i="${i}"><span class="st-icon">${stepIcon(s)}</span><span class="st-text">${esc(stepText(s))}${s.distance ? `<div class="st-dist">${fmtDist(s.distance)}</div>` : ''}</span></li>`).join('')}</ol>` : ''}
+      <li data-i="${i}" style="--i:${i}"><span class="st-icon">${stepIcon(s)}</span><span class="st-text">${esc(stepText(s))}${s.distance ? `<div class="st-dist">${fmtDist(s.distance)}</div>` : ''}</span></li>`).join('')}</ol>` : ''}
     <div class="dir-note">Times are estimates from OpenStreetMap road data and don't include live traffic.</div>`;
-  $$('.route-card', body).forEach((c) => c.onclick = () => { d.active = +c.dataset.i; renderRoutes(); renderDirections(); });
+  $$('.route-card', body).forEach((c) => c.onclick = () => { if (d.active === +c.dataset.i) return; d.active = +c.dataset.i; renderRoutes(true); renderDirections(); });
   $('#steps-toggle').onclick = () => { d.showSteps = !d.showSteps; renderDirections(); };
   $$('.steps li', body).forEach((li) => li.onclick = () => {
     const s = steps[+li.dataset.i]; map.flyTo({ center: s.maneuver.location, zoom: 17, padding: fitPadding() });
@@ -857,15 +916,16 @@ $('#directions-btn').onclick = () => openDirections(state.place ? { to: placeToW
 function locate(silent = false) {
   return new Promise((resolve) => {
     if (!navigator.geolocation) { toast('Location is not supported in this browser'); return resolve(null); }
-    $('#locate-btn').classList.add('active');
+    $('#locate-btn').classList.add('active', 'locating');
     navigator.geolocation.getCurrentPosition((pos) => {
+      $('#locate-btn').classList.remove('locating');
       state.me = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy };
       if (!state.meMarker) { const el = document.createElement('div'); el.className = 'me-marker'; el.title = 'Your location'; state.meMarker = new maplibregl.Marker({ element: el }); }
       state.meMarker.setLngLat([state.me.lon, state.me.lat]).addTo(map);
       if (!silent) map.flyTo({ center: [state.me.lon, state.me.lat], zoom: Math.max(map.getZoom(), 15), padding: fitPadding() });
       resolve(state.me);
     }, (err) => {
-      $('#locate-btn').classList.remove('active');
+      $('#locate-btn').classList.remove('active', 'locating');
       toast(err.code === 1 ? 'Location permission denied' : "Couldn't get your location");
       resolve(null);
     }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
@@ -882,7 +942,10 @@ $$('.layer-opt').forEach((b) => b.addEventListener('click', () => setStyle(b.dat
 function setStyle(key) {
   if (key === state.styleKey) return;
   state.styleKey = key; localStorage.setItem('map.style', key);
+  document.body.classList.add('style-switching');
   map.setStyle(CONFIG.styles[key]);
+  map.once('idle', () => document.body.classList.remove('style-switching'));
+  setTimeout(() => document.body.classList.remove('style-switching'), 2500);
   applyStyleUI(); $('#layer-menu').classList.add('hidden');
 }
 function applyStyleUI() {
@@ -932,4 +995,15 @@ document.addEventListener('keydown', (e) => {
       getJSON(`${CONFIG.photon}/reverse?lat=${lat}&lon=${lon}&limit=1`).then((d) => { const f = d.features[0]; if (f && state.place === p) { const r = photonToPlace(f); p.address = r.address; p.short = r.short; p.category = r.category; showPlace(p); } }).catch(() => {});
     }
   } else if (q) { searchInput.value = q; syncClear(); map.once('load', () => runSearch(q)); }
+})();
+
+/* ---------------- Rotating search hints ---------------- */
+(function rotatePlaceholder() {
+  const hints = ['Search places, addresses, coordinates', 'Try “coffee near me”', 'Try “India Gate”', 'Try “petrol pump”', 'Try “28.6129, 77.2295”'];
+  let i = 0;
+  setInterval(() => {
+    if (document.activeElement === searchInput || searchInput.value || searchInput.placeholder.startsWith('Search nearby')) return;
+    searchInput.classList.add('ph-fade');
+    setTimeout(() => { i = (i + 1) % hints.length; searchInput.placeholder = hints[i]; searchInput.classList.remove('ph-fade'); }, 300);
+  }, 3500);
 })();

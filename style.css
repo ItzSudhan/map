@@ -225,7 +225,6 @@ body.panel-open #layers { left: calc(var(--panel-w) + 12px); }
   width: 22px; height: 22px; border-radius: 50%; background: #ea4335; border: 2px solid #fff;
   box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: pointer; display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 600;
 }
-.result-dot:hover { transform: scale(1.2); }
 .start-marker { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 4px solid #202124; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 .me-marker { width: 18px; height: 18px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(26,115,232,.2), 0 1px 4px rgba(0,0,0,.4); }
 .measure-dot { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 2px solid #202124; }
@@ -271,3 +270,143 @@ body.dark-ui #toast { background: #e8eaed; color: #202124; }
 .suggestions .s-loading:hover { background: none; }
 .result .r-main { flex: 1; min-width: 0; }
 .result .r-dist { font-size: 12px; color: var(--muted); flex: none; }
+
+/* =========================================================
+   Motion: micro-interactions and animations
+   ========================================================= */
+:root {
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --spring: cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* Shared hover / press feedback */
+.icon-btn, .chip, .ctrl, .action .circ, .layer-opt, .drawer-item, .result, .route-card, .steps li,
+.info-row, .suggestions li, .swap, .dir-modes .mode, #layer-btn, .steps-toggle, #ctx-menu li, .s-clear {
+  transition: background-color .15s ease, color .15s ease, box-shadow .2s ease, transform .18s var(--spring), border-color .2s ease, opacity .15s ease;
+}
+.icon-btn:active, .ctrl:active, .swap:active, .dir-modes .mode:active { transform: scale(.88); }
+.chip:active, .layer-opt:active { transform: scale(.94); }
+.action:active .circ { transform: scale(.88); }
+.action:hover .circ { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(26, 115, 232, .25); }
+.result:active, .route-card:active, .suggestions li:active, .info-row:active { transform: scale(.985); }
+.chip:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, .18); }
+.chip.active { animation: pop .35s var(--spring); }
+#directions-btn:hover svg { transform: rotate(-12deg) scale(1.08); }
+#directions-btn svg, #menu-btn svg { transition: transform .25s var(--spring); }
+#menu-btn:hover svg { transform: scaleX(1.12); }
+#zoom-in:hover svg, #zoom-out:hover svg { transform: scale(1.12); }
+.ctrl svg { transition: transform .2s var(--spring); }
+
+/* Search card */
+#search-card { transition: box-shadow .25s ease, border-radius .15s ease; }
+#search-card:focus-within { box-shadow: 0 4px 16px rgba(0, 0, 0, .22); }
+#clear-btn:not(.hidden) { animation: spinIn .3s var(--spring); }
+#search-input::placeholder { transition: opacity .3s ease; }
+#search-input.ph-fade::placeholder { opacity: 0; }
+
+/* Suggestions: drop in, then rows cascade (only when the list is rebuilt) */
+.suggestions:not(.hidden) { animation: dropIn .18s var(--ease-out); transform-origin: top; }
+.suggestions.animate li { animation: fadeUp .26s var(--ease-out) both; animation-delay: calc(var(--i, 0) * 22ms); }
+.suggestions li.active .s-icon { transform: scale(1.08); }
+.suggestions .s-icon { transition: transform .2s var(--spring), background-color .15s; }
+.suggestions li:hover .s-icon { transform: scale(1.08); }
+
+/* Side panel: open/close + content cross-fade */
+#panel.closing { animation: slideOut .18s ease-in forwards; pointer-events: none; }
+#panel-content.reveal { animation: fadeIn .22s var(--ease-out); }
+.reveal .result,
+.reveal .route-card,
+.reveal .info-row,
+.reveal .action { animation: fadeUp .3s var(--ease-out) both; }
+.reveal .action:nth-child(2) { animation-delay: 40ms; }
+.reveal .action:nth-child(3) { animation-delay: 80ms; }
+.reveal .action:nth-child(4) { animation-delay: 120ms; }
+.reveal .result:nth-of-type(2), .reveal .route-card:nth-child(2), .reveal .info-row:nth-of-type(2) { animation-delay: 30ms; }
+.reveal .result:nth-of-type(3), .reveal .route-card:nth-child(3), .reveal .info-row:nth-of-type(3) { animation-delay: 60ms; }
+.reveal .result:nth-of-type(4), .reveal .info-row:nth-of-type(4) { animation-delay: 90ms; }
+.reveal .result:nth-of-type(5), .reveal .info-row:nth-of-type(5) { animation-delay: 120ms; }
+.reveal .result:nth-of-type(6), .reveal .info-row:nth-of-type(6) { animation-delay: 150ms; }
+.reveal .result:nth-of-type(n+7) { animation-delay: 180ms; }
+.reveal .place-hero > span { display: inline-block; animation: heroPop .55s var(--spring) both; animation-delay: 60ms; }
+.reveal .place-head { animation: fadeUp .3s var(--ease-out) both; }
+.steps li { animation: fadeUp .25s var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 12) * 18ms); }
+.route-card { position: relative; }
+.route-card.active { background: linear-gradient(90deg, rgba(26, 115, 232, .06), transparent 60%); }
+.result.hl { background: var(--hover); }
+.result .r-icon { transition: transform .25s var(--spring); }
+.result:hover .r-icon, .result.hl .r-icon { transform: scale(1.15) rotate(-6deg); }
+.action.just-toggled .circ { animation: savePop .5s var(--spring); }
+.action.just-toggled .circ svg { animation: pop .5s var(--spring); }
+
+/* Skeleton loaders */
+.skel-head { padding: 0 24px 8px; font-size: 13px; color: var(--muted); display: flex; gap: 10px; align-items: center; }
+.skel-row { display: flex; gap: 14px; padding: 16px 24px; border-bottom: 1px solid var(--line); }
+.skel-row .sk-icon { width: 28px; height: 28px; border-radius: 50%; flex: none; }
+.skel-row .sk-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.sk { background: linear-gradient(90deg, var(--hover) 25%, var(--line) 37%, var(--hover) 63%); background-size: 400% 100%; animation: shimmer 1.3s ease infinite; border-radius: 6px; }
+.sk-line { height: 12px; }
+.sk-line.w1 { width: 62%; } .sk-line.w2 { width: 86%; } .sk-line.w3 { width: 45%; }
+
+/* Map markers */
+.pin-marker { position: relative; }
+.pin-marker svg { transform-origin: 50% 100%; animation: pinDrop .55s var(--spring) both; transition: transform .2s var(--spring); }
+.pin-marker:hover svg { transform: scale(1.1) translateY(-2px); }
+.pin-marker .pin-shadow { position: absolute; left: 50%; bottom: -3px; width: 14px; height: 5px; margin-left: -7px; border-radius: 50%; background: rgba(0, 0, 0, .3); filter: blur(1px); animation: shadowIn .55s var(--spring) both; }
+.result-dot { animation: dotPop .4s var(--spring) both; transition: scale .2s var(--spring), background-color .2s; }
+.result-dot.hl, .result-dot:hover { scale: 1.35; background: #c5221f; z-index: 2; }
+.start-marker { animation: dotPop .4s var(--spring) both; }
+.measure-dot { animation: dotPop .3s var(--spring) both; }
+.me-marker { position: relative; }
+.me-marker::after { content: ''; position: absolute; inset: -9px; border-radius: 50%; background: rgba(26, 115, 232, .35); animation: pulse 2s ease-out infinite; z-index: -1; }
+#locate-btn.locating svg { animation: spin 1.2s linear infinite; color: var(--blue); }
+
+/* Floating UI */
+#ctx-menu:not(.hidden) { animation: menuIn .16s var(--ease-out); transform-origin: top left; }
+#layer-menu:not(.hidden) { animation: menuIn .2s var(--spring); transform-origin: bottom left; }
+#layer-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0, 0, 0, .28); }
+#layer-btn:active { transform: scale(.95); }
+#layer-btn #layer-thumb { transition: transform .4s var(--ease-out); }
+#layer-btn:hover #layer-thumb { transform: scale(1.08); }
+.layer-opt .thumb { transition: transform .2s var(--spring), outline-color .2s; }
+.layer-opt:hover .thumb { transform: scale(1.06); }
+#toast:not(.hidden) { animation: toastIn .35s var(--spring); }
+#toast.leaving { animation: toastOut .2s ease-in forwards; }
+#measure-badge:not(.hidden) { animation: toastIn .3s var(--spring); }
+#drawer { transition: transform .32s var(--ease-out); }
+#drawer-backdrop:not(.hidden) { animation: fadeIn .25s ease; }
+#drawer.open .drawer-item { animation: slideRight .3s var(--ease-out) both; }
+#drawer.open .drawer-item:nth-of-type(2) { animation-delay: 30ms; }
+#drawer.open .drawer-item:nth-of-type(3) { animation-delay: 60ms; }
+#drawer.open .drawer-item:nth-of-type(4) { animation-delay: 90ms; }
+#drawer.open .drawer-item:nth-of-type(5) { animation-delay: 120ms; }
+#map { transition: filter .3s ease; }
+body.style-switching #map { filter: blur(3px) saturate(.8); }
+
+/* Keyframes */
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } }
+@keyframes dropIn { from { opacity: 0; transform: translateY(-6px) scaleY(.96); } }
+@keyframes slideOut { to { opacity: 0; transform: translateX(-24px); } }
+@keyframes slideRight { from { opacity: 0; transform: translateX(-12px); } }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.15); } 100% { transform: scale(1); } }
+@keyframes savePop { 0% { transform: scale(1); } 35% { transform: scale(.8); } 70% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes heroPop { from { opacity: 0; transform: scale(.3) rotate(-15deg); } }
+@keyframes spinIn { from { opacity: 0; transform: rotate(-90deg) scale(.5); } }
+@keyframes pinDrop { 0% { opacity: 0; transform: translateY(-40px) scale(.9); } 60% { opacity: 1; transform: translateY(0) scaleY(.85) scaleX(1.08); } 100% { transform: none; } }
+@keyframes shadowIn { 0% { opacity: 0; transform: scale(.3); } 60% { opacity: 1; transform: scale(1.2); } 100% { transform: none; } }
+@keyframes dotPop { from { opacity: 0; scale: 0; } }
+@keyframes pulse { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.2); opacity: 0; } }
+@keyframes menuIn { from { opacity: 0; transform: scale(.92); } }
+@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 16px) scale(.95); } to { transform: translate(-50%, 0); } }
+@keyframes toastOut { to { opacity: 0; transform: translate(-50%, 10px); } }
+@keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@media (max-width: 640px) {
+  #panel.closing { animation: slideDown .2s ease-in forwards; }
+  @keyframes slideDown { to { opacity: 0; transform: translateY(40px); } }
+}
+
+/* Respect "reduce motion" */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; animation-delay: 0ms !important; transition-duration: .01ms !important; }
+  .me-marker::after { display: none; }
+}

@@ -572,7 +572,7 @@ function renderPlace(p, fromResults, animate = true) {
     <div class="attribution-note">Data from <a href="${osmLink}" target="_blank" rel="noopener">OpenStreetMap</a>. Something wrong? <a href="https://www.openstreetmap.org/note/new#map=18/${p.lat}/${p.lon}" target="_blank" rel="noopener">Suggest an edit</a>.</div>
   `, { animate, keepScroll: !animate });
   $('#back-results')?.addEventListener('click', () => showResults(state.results.places, state.results.title, { keepView: true }));
-  window.PlaceExtras?.render(p);
+  if (typeof PlaceExtras !== 'undefined') PlaceExtras.render(p);
   $$('#panel .info-row[data-k]').forEach((r) => r.addEventListener('click', () =>
     copy(r.dataset.k === 'coords' ? fmtCoord(p.lat, p.lon) : p.address, r.dataset.k === 'coords' ? 'Coordinates copied' : 'Address copied')));
   $$('#panel .action').forEach((b) => b.addEventListener('click', () => {

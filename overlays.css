@@ -1,0 +1,31 @@
+/* Map: overlay layers (overlays.js) */
+
+/* Weather radar timeline */
+#radar-timeline {
+  position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); z-index: 10;
+  display: flex; align-items: center; gap: 10px; padding: 6px 14px 6px 6px; width: min(360px, calc(100vw - 150px));
+  color: var(--text); font-size: 13px;
+  animation: rtIn .3s var(--spring);
+}
+body.panel-open #radar-timeline { left: calc(50% + var(--panel-w) / 2); }
+#radar-timeline .rt-play { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--blue); flex: none; }
+#radar-timeline .rt-play:hover { background: var(--hover); }
+#radar-timeline .rt-play .mi { font-size: 26px; }
+#radar-timeline .rt-range { flex: 1; min-width: 60px; accent-color: var(--blue); cursor: pointer; margin: 0; }
+#radar-timeline .rt-time { display: flex; flex-direction: column; line-height: 1.2; font-size: 11px; color: var(--muted); white-space: nowrap; min-width: 62px; }
+#radar-timeline .rt-time b { font-size: 13px; font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+#radar-timeline .rt-src { font-size: 10px; color: var(--muted); text-decoration: none; align-self: flex-end; }
+#radar-timeline .rt-src:hover { text-decoration: underline; }
+
+@keyframes rtIn { from { opacity: 0; transform: translate(-50%, 16px) scale(.96); } }
+
+/* Hide while Street View / embed take over the screen, and when the mobile bottom sheet is open */
+body.sv-open #radar-timeline, body.embed #radar-timeline { display: none !important; }
+@media (max-width: 640px) {
+  #radar-timeline { bottom: 104px; width: calc(100vw - 24px); }
+  body.panel-open #radar-timeline { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #radar-timeline { animation: none; }
+}

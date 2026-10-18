@@ -26,14 +26,15 @@ const StreetView = (() => {
     if (seqCache.has(seq)) return seqCache.get(seq);
     const p = (async () => {
       const all = [];
-      for (let page = 1; page <= 5; page++) {
-        const d = await getJSON(`${API}/photo/?sequenceId=${seq}&itemsPerPage=200&page=${page}`);
+      // KartaView allows at most 150 photos per page
+      for (let page = 1; page <= 8; page++) {
+        const d = await getJSON(`${API}/photo/?sequenceId=${seq}&itemsPerPage=150&page=${page}`);
         const rows = d.result?.data || [];
         all.push(...rows.map(toPhoto));
-        if (!d.result?.hasMoreData || rows.length < 200) break;
+        if (!d.result?.hasMoreData || rows.length < 150) break;
       }
       return all.sort((a, b) => a.idx - b.idx);
-    })();
+    })().catch((e) => { seqCache.delete(seq); throw e; }); // don't cache failures
     seqCache.set(seq, p);
     return p;
   }
@@ -109,7 +110,7 @@ const StreetView = (() => {
     try {
       const hits = await nearby(lat, lon, radius);
       if (!hits.length) return toast('No Street View imagery here yet. Try a main road.');
-      const list = await sequence(hits[0].seq);
+      const list = await sequence(hits[0].seq).catch(() => [hits[0]]);
       // Pick the photo in that drive closest to where you clicked
       const best = list.reduce((b, p) => (haversine([lon, lat], [p.lon, p.lat]) < haversine([lon, lat], [b.lon, b.lat]) ? p : b), list[0] || hits[0]);
       open(best);
@@ -152,7 +153,10 @@ const StreetView = (() => {
     document.body.classList.add('sv-open');
     if (!wasOpen) setTimeout(() => map.resize(), 320);
     show();
+    seqPhotos = [photo];
+    updateNav();
     seqPhotos = await sequence(photo.seq).catch(() => [photo]);
+    if (!seqPhotos.length) seqPhotos = [photo];
     if (current !== photo) return;
     current = seqPhotos.find((p) => p.idx === photo.idx) || photo;
     updateNav();
@@ -219,7 +223,7 @@ const StreetView = (() => {
       el.innerHTML = `<button class="sv-card" aria-label="Open Street View">
         <img src="${esc(ph.thumb || ph.img)}" alt="" loading="lazy" onload="this.classList.add('loaded')">
         <span class="sv-card-label">${mi('streetview')} Street View <small>${ph.dist ? fmtDist(ph.dist) + ' away' : ''}</small></span></button>`;
-      el.querySelector('button').onclick = async () => { const list = await sequence(ph.seq); open(list.find((x) => x.idx === ph.idx) || ph); };
+      el.querySelector('button').onclick = () => open(ph); // opens instantly; the rest of the drive loads in the background
     } catch {}
   }
 
